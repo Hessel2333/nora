@@ -1,0 +1,1 @@
+import { PlanDetailPage } from "@/features/production/production-pages";export default async function Page({params}:{params:Promise<{planId:string}>}){const {planId}=await params;return <PlanDetailPage id={planId}/>}

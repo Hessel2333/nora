@@ -1,0 +1,13 @@
+node_modules
+.next
+.next-dev
+out
+/.playwright-cli/
+/artifacts/
+/output/
+.DS_Store
+.qa-*.png
+*.log
+*.tsbuildinfo
+.env*
+!.env.example

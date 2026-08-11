@@ -1,0 +1,1 @@
+import { MesStationPage } from "@/features/mes/mes-page"; export default async function Page({params}:{params:Promise<{stationId:string}>}){const {stationId}=await params;return <MesStationPage id={stationId}/>}
