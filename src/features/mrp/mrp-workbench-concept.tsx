@@ -76,7 +76,7 @@ export function MrpWorkbenchConcept() {
 
   return <div className="-m-4 flex h-[calc(100vh-64px)] min-h-[760px] flex-col overflow-hidden bg-[#f5f7fb] lg:-m-6">
     <header className="flex h-[76px] shrink-0 items-center justify-between border-b border-[#dfe5ed] bg-white px-6">
-      <div><h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#111c3b]">MRP 分析工作台</h1><p className="mt-1 text-xs text-[#74809a]">异常优先 · 图表与明细保持同步</p></div>
+      <div><h1 className="text-[24px] font-semibold tracking-[-0.035em] text-[#111c3b]">MRP 分析工作台</h1></div>
       <div className="flex items-end gap-2">
         <label><span className="mb-1 block text-[9px] font-semibold text-[#7d899e]">选择销售订单</span><select className="h-9 w-[300px] rounded-[9px] border border-[#dce3ed] bg-white px-3 text-xs text-[#263451]"><option>SO202608060018 · 华润万家深圳福田店</option><option>SO202608060021 · 招商银行深圳分行</option></select></label>
         <label><span className="mb-1 block text-[9px] font-semibold text-[#7d899e]">需求日期</span><button className="h-9 rounded-[9px] border border-[#dce3ed] bg-white px-3 text-xs text-[#263451]">2026-08-06</button></label>

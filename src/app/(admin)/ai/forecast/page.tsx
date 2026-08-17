@@ -1,1 +1,5 @@
-import { ForecastPage } from "@/features/ai/forecast-page";export default function Page(){return <ForecastPage/>}
+import { ForecastPage } from "@/features/ai/forecast-page-optimized";
+
+export default function Page() {
+  return <ForecastPage />;
+}
