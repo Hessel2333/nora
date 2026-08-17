@@ -12,6 +12,14 @@ const pageSource = readFileSync(
   join(projectRoot, "src/features/digital-twin/digital-twin-page.tsx"),
   "utf8",
 );
+const geometrySource = readFileSync(
+  join(projectRoot, "src/features/digital-twin/factory-geometry.ts"),
+  "utf8",
+);
+const model3DSource = readFileSync(
+  join(projectRoot, "src/features/digital-twin/factory-model-3d.tsx"),
+  "utf8",
+);
 
 describe("factory CAD architecture provenance", () => {
   it("keeps the target CAD entities in one coordinate system", () => {
@@ -51,6 +59,7 @@ describe("factory CAD architecture provenance", () => {
     expect(componentSource).toContain("<ChartNoAxesCombined");
     expect(componentSource).toContain("onMonitor();");
     expect(pageSource).toContain("onMonitorRoom={openRoomCamera}");
+    expect(pageSource).toContain("onOpenCamera={() => openRoomCamera(selectedRoom.id)}");
     expect(pageSource).toContain("<RoomCameraDialog");
   });
 
@@ -69,18 +78,32 @@ describe("factory CAD architecture provenance", () => {
   });
 
   it("uses numbered CAD room geometry without the previous business-zone masks", () => {
-    expect(componentSource).toContain("const CAD_ROOM_MASKS");
-    expect(componentSource).toContain('viewBox="0 0 1116 430"');
+    expect(componentSource).toContain("CAD_ROOM_GEOMETRIES");
+    expect(componentSource).toContain('variant === "showroom" ? "130 35 986 385" : "0 0 1116 430"');
     expect(componentSource).toContain('mask="url(#factory-footprint-mask)"');
-    expect(componentSource.match(/cadRectRoom\("R\d{2}"/g)?.length).toBe(13);
-    expect(componentSource).toContain('cadRoom("R03+R06", "蔬菜内包装间"');
-    expect(componentSource).toContain('cadRoom("R05+R07", "肉类内包装间"');
-    expect(componentSource).toContain("left: 361.75, right: 526.7");
-    expect(componentSource).not.toContain('cadRectRoom("R22"');
+    expect(geometrySource.match(/rectangularRoom\("R\d{2}"/g)?.length).toBe(13);
+    expect(geometrySource).toContain('room("R03+R06", "蔬菜内包装间"');
+    expect(geometrySource).toContain('room("R05+R07", "肉类内包装间"');
+    expect(geometrySource).toContain("left: 361.75, right: 526.7");
+    expect(geometrySource).not.toContain('rectangularRoom("R22"');
     for (const removedRoom of ["R16", "R17", "R18", "R19"]) {
-      expect(componentSource).not.toContain(`cadRectRoom("${removedRoom}"`);
+      expect(geometrySource).not.toContain(`rectangularRoom("${removedRoom}"`);
     }
     expect(componentSource).not.toContain("ROOM_LAYOUT");
     expect(componentSource).not.toContain("TwinZone");
+  });
+
+  it("builds the 3D model from the same CAD room geometry", () => {
+    expect(model3DSource).toContain("CAD_ROOM_GEOMETRIES.forEach");
+    expect(model3DSource).toContain("cadPointToWorld");
+    expect(model3DSource).toContain("OrbitControls");
+    expect(model3DSource).toContain("CSS2DRenderer");
+    expect(pageSource).toContain('<FactoryModel3D ref={model3DRef}');
+    expect(pageSource).toContain('aria-label="地图显示模式"');
+  });
+
+  it("uses the prototype-aligned front camera without horizontal yaw", () => {
+    expect(model3DSource).toContain("new THREE.Vector3(0, 36, 31)");
+    expect(model3DSource).not.toContain("new THREE.Vector3(4.5, 36, 31)");
   });
 });

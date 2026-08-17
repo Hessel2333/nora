@@ -3,33 +3,8 @@
 import { ChartNoAxesCombined } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import type { ZoneStatus } from "@/lib/types";
+import { CAD_MAP_HEIGHT, CAD_MAP_WIDTH, CAD_ROOM_GEOMETRIES, type CadRoomGeometry } from "./factory-geometry";
 import type { FactoryRoomSnapshot } from "./room-monitoring";
-
-interface SvgPoint {
-  x: number;
-  y: number;
-}
-
-interface SvgRect {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
-interface CadRoomMask {
-  id: string;
-  name: string;
-  labelLines: string[];
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  path: string;
-}
-
-const MAP_WIDTH = 1116;
-const MAP_HEIGHT = 430;
 
 const ROOM_STATUS_COLORS: Record<ZoneStatus, { solid: string; stroke: string; fill: string }> = {
   normal: { solid: "#08a879", stroke: "#35b995", fill: "#dff7ef" },
@@ -40,72 +15,23 @@ const ROOM_STATUS_COLORS: Record<ZoneStatus, { solid: string; stroke: string; fi
   offline: { solid: "#7d899e", stroke: "#9aa6b8", fill: "#eef1f5" },
 };
 
-function cadRoom(id: string, name: string, points: SvgPoint[], labelLines: string[] = [name]): CadRoomMask {
-  const xs = points.map((point) => point.x);
-  const ys = points.map((point) => point.y);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
-  return {
-    id,
-    name,
-    labelLines,
-    x,
-    y,
-    width: Math.max(...xs) - x,
-    height: Math.max(...ys) - y,
-    path: points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" ") + " Z",
-  };
-}
+const SHOWROOM_STATUS_COLORS: Record<ZoneStatus, { solid: string; stroke: string; fill: string }> = {
+  normal: { solid: "#43ba8b", stroke: "#3f8f78", fill: "#102b2b" },
+  running: { solid: "#4c8dff", stroke: "#528cdf", fill: "#10284a" },
+  waiting: { solid: "#d7a04e", stroke: "#a97d3e", fill: "#342817" },
+  warning: { solid: "#d7a04e", stroke: "#c28d3e", fill: "#392a17" },
+  critical: { solid: "#e2666a", stroke: "#c35c61", fill: "#3b1e28" },
+  offline: { solid: "#718099", stroke: "#52647d", fill: "#172130" },
+};
 
-function cadRectRoom(id: string, name: string, rect: SvgRect, labelLines?: string[]): CadRoomMask {
-  return cadRoom(id, name, [
-    { x: rect.left, y: rect.top },
-    { x: rect.right, y: rect.top },
-    { x: rect.right, y: rect.bottom },
-    { x: rect.left, y: rect.bottom },
-  ], labelLines);
-}
+export type FactorySchematicVariant = "admin" | "showroom";
 
-// Geometry-only calibration set. Each coordinate is a wall-face coordinate
-// read from the generated CAD vector layer, not a previous business-zone box.
-// IDs deliberately carry no business meaning until the rooms are confirmed.
-const CAD_ROOM_MASKS: CadRoomMask[] = [
-  cadRectRoom("R01", "蔬菜前处理加工", { left: 222.68, right: 359.82, top: 201.58, bottom: 405.78 }, ["蔬菜前处理", "加工"]),
-  cadRectRoom("R02", "蔬菜切配间", { left: 361.75, right: 526.7, top: 201.58, bottom: 405.78 }),
-  cadRoom("R03+R06", "蔬菜内包装间", [
-    { x: 528.64, y: 201.58 },
-    { x: 660.94, y: 201.58 },
-    { x: 660.94, y: 275.35 },
-    { x: 687.54, y: 275.35 },
-    { x: 687.54, y: 405.78 },
-    { x: 528.64, y: 405.78 },
-  ]),
-  cadRectRoom("R04", "第二更衣室", { left: 663.11, right: 716.08, top: 201.58, bottom: 273.18 }, ["第二", "更衣室"]),
-  cadRoom("R05+R07", "肉类内包装间", [
-    { x: 718.02, y: 201.58 },
-    { x: 795.41, y: 201.58 },
-    { x: 795.41, y: 405.78 },
-    { x: 689.48, y: 405.78 },
-    { x: 689.48, y: 275.35 },
-    { x: 718.02, y: 275.35 },
-  ]),
-  cadRectRoom("R08", "综合外包间", { left: 797.35, right: 969.07, top: 201.58, bottom: 405.78 }),
-  cadRectRoom("R09", "肉类切配间", { left: 222.68, right: 351.59, top: 56.71, bottom: 146.68 }),
-  cadRectRoom("R10", "配料间", { left: 353.77, right: 441.33, top: 56.71, bottom: 144.5 }),
-  cadRectRoom("R11", "冷藏库", { left: 445.2, right: 589.83, top: 58.88, bottom: 142.57 }),
-  cadRectRoom("R12", "冷冻库", { left: 593.94, right: 728.42, top: 58.88, bottom: 142.57 }),
-  cadRectRoom("R13", "包材库", { left: 732.53, right: 795.41, top: 56.71, bottom: 146.68 }),
-  cadRectRoom("R14", "0–4°C冷藏库", { left: 799.28, right: 967.14, top: 59.66, bottom: 146.68 }, ["0–4°C", "冷藏库"]),
-  cadRectRoom("R15", "肉类前处理加工", { left: 151.09, right: 220.5, top: 57.67, bottom: 340.41 }, ["肉类前处理", "加工"]),
-  cadRectRoom("R20", "楼梯间", { left: 982.84, right: 1103.14, top: 55.61, bottom: 288.93 }),
-  cadRectRoom("R21", "发货缓冲区", { left: 982.84, right: 1103.14, top: 288.93, bottom: 407.81 }, ["发货", "缓冲区"]),
-];
-
-function RoomMask({ room, live, selected, focused, onSelect, onMonitor, onOpenRoom }: {
-  room: CadRoomMask;
+function RoomMask({ room, live, selected, focused, variant, onSelect, onMonitor, onOpenRoom }: {
+  room: CadRoomGeometry;
   live?: FactoryRoomSnapshot;
   selected: boolean;
   focused: boolean;
+  variant: FactorySchematicVariant;
   onSelect: () => void;
   onMonitor: () => void;
   onOpenRoom: () => void;
@@ -122,7 +48,8 @@ function RoomMask({ room, live, selected, focused, onSelect, onMonitor, onOpenRo
   const labelTop = centerY - labelHeight / 2;
   const monitorRowTop = labelTop + labelHeight - 11;
   const labelCornerRadius = compact ? 3 : 4;
-  const colors = ROOM_STATUS_COLORS[live?.status ?? "normal"];
+  const showroom = variant === "showroom";
+  const colors = (showroom ? SHOWROOM_STATUS_COLORS : ROOM_STATUS_COLORS)[live?.status ?? "normal"];
 
   const onKeyDown = (event: KeyboardEvent<SVGGElement>) => {
     if (event.key === "Enter") {
@@ -186,85 +113,108 @@ function RoomMask({ room, live, selected, focused, onSelect, onMonitor, onOpenRo
           width={labelWidth}
           height={labelHeight}
           rx={labelCornerRadius}
-          fill={selected ? colors.solid : "#ffffff"}
-          fillOpacity=".98"
+          fill={selected ? colors.solid : showroom ? "#0c1a2b" : "#ffffff"}
+          fillOpacity={showroom ? ".94" : ".98"}
           stroke={selected ? colors.solid : colors.stroke}
           strokeWidth=".8"
         />
         <circle cx={centerX - labelWidth / 2 + 7} cy={labelTop + 7} r={2.7} fill={selected ? "#ffffff" : colors.solid} />
-        <text x={centerX + 2} y={labelTop + 9} textAnchor="middle" fill={selected ? "#eaf2ff" : "#6d7f99"} fontSize={compact ? 6 : 6.6} fontWeight="700">{room.id}</text>
-        <text x={centerX} y={labelTop + 18} textAnchor="middle" fill={selected ? "#ffffff" : "#24476f"} fontSize={compact ? 6.7 : 8.1} fontWeight="700">
+        <text x={centerX + 2} y={labelTop + 9} textAnchor="middle" fill={selected ? "#eaf2ff" : showroom ? "#8ba2bf" : "#6d7f99"} fontSize={compact ? 6 : 6.6} fontWeight="700">{room.id}</text>
+        <text x={centerX} y={labelTop + 18} textAnchor="middle" fill={selected ? "#ffffff" : showroom ? "#d8e4f3" : "#24476f"} fontSize={compact ? 6.7 : 8.1} fontWeight="700">
           {room.labelLines.map((line, index) => <tspan key={line} x={centerX} dy={index === 0 ? 0 : lineHeight}>{line}</tspan>)}
         </text>
-        {showMetric ? <text x={centerX} y={labelTop + 19 + room.labelLines.length * lineHeight + 7} textAnchor="middle" fill={selected ? "#eef5ff" : "#708099"} fontSize="6.8" fontWeight="600">{metric}</text> : null}
-        <rect x={centerX - labelWidth / 2 + 1} y={monitorRowTop} width={labelWidth - 2} height="10" rx="2.5" fill={selected ? "rgba(255,255,255,.14)" : "#f1f5fb"} />
+        {showMetric ? <text x={centerX} y={labelTop + 19 + room.labelLines.length * lineHeight + 7} textAnchor="middle" fill={selected ? "#eef5ff" : showroom ? "#8fa5be" : "#708099"} fontSize="6.8" fontWeight="600">{metric}</text> : null}
+        <rect x={centerX - labelWidth / 2 + 1} y={monitorRowTop} width={labelWidth - 2} height="10" rx="2.5" fill={selected ? "rgba(255,255,255,.14)" : showroom ? "#13253a" : "#f1f5fb"} />
         <ChartNoAxesCombined x={centerX - (compact ? 4 : 12)} y={monitorRowTop + 2} width="7" height="7" color={selected ? "#ffffff" : colors.solid} strokeWidth={2.1} />
-        {!compact ? <text x={centerX + 4} y={monitorRowTop + 7.4} textAnchor="middle" fill={selected ? "#ffffff" : "#536b89"} fontSize="6.2" fontWeight="700">监控</text> : null}
+        {!compact ? <text x={centerX + 4} y={monitorRowTop + 7.4} textAnchor="middle" fill={selected ? "#ffffff" : showroom ? "#8198b5" : "#536b89"} fontSize="6.2" fontWeight="700">监控</text> : null}
       </g>
     </g>
   );
 }
 
-function ArchitecturalBase() {
+function ArchitecturalBase({ variant }: { variant: FactorySchematicVariant }) {
+  const showroom = variant === "showroom";
   return (
     <g aria-hidden="true">
-      <rect x="16" y="20" width="1090" height="392" rx="12" fill="#fbfdff" fillOpacity=".68" />
-      <image href="/cad/factory-plan.svg" x="0" y="0" width="1240" height="670" preserveAspectRatio="xMidYMid meet" mask="url(#factory-footprint-mask)" />
+      <rect x="16" y="20" width="1090" height="392" rx="12" fill={showroom ? "#0d1c2c" : "#fbfdff"} fillOpacity={showroom ? ".96" : ".68"} />
+      <image href="/cad/factory-plan.svg" x="0" y="0" width="1240" height="670" preserveAspectRatio="xMidYMid meet" mask="url(#factory-footprint-mask)" opacity={showroom ? ".72" : "1"} />
     </g>
   );
 }
 
-function focusTransform(room: CadRoomMask | undefined): string {
+function focusTransform(room: CadRoomGeometry | undefined): string {
   if (!room) return "translate3d(0%, 0%, 0) scale(1)";
   const scale = Math.min(2.4, 900 / (room.width + 100), 380 / (room.height + 32));
   const centerX = room.x + room.width / 2;
   const centerY = room.y + room.height / 2;
-  const translateX = 50 - (centerX / MAP_WIDTH) * scale * 100;
-  const translateY = 50 - (centerY / MAP_HEIGHT) * scale * 100;
+  const translateX = 50 - (centerX / CAD_MAP_WIDTH) * scale * 100;
+  const translateY = 50 - (centerY / CAD_MAP_HEIGHT) * scale * 100;
   return `translate3d(${translateX.toFixed(3)}%, ${translateY.toFixed(3)}%, 0) scale(${scale.toFixed(3)})`;
 }
 
-export function FactorySchematic({ rooms, selectedId, focusedId, showRooms, onSelect, onMonitorRoom, onOpenRoom }: {
+export function FactorySchematic({ rooms, selectedId, focusedId, showRooms, variant = "admin", showBatchFlow = false, batchProgress = 0, onSelect, onMonitorRoom, onOpenRoom }: {
   rooms: FactoryRoomSnapshot[];
   selectedId: string;
   focusedId: string | null;
   showRooms: boolean;
+  variant?: FactorySchematicVariant;
+  showBatchFlow?: boolean;
+  batchProgress?: number;
   onSelect: (id: string) => void;
   onMonitorRoom: (id: string) => void;
   onOpenRoom: (id: string) => void;
 }) {
   const roomDataById = new Map(rooms.map((room) => [room.id, room]));
-  const focusedRoom = focusedId ? CAD_ROOM_MASKS.find((room) => room.id === focusedId) : undefined;
+  const focusedRoom = focusedId ? CAD_ROOM_GEOMETRIES.find((room) => room.id === focusedId) : undefined;
 
   return (
     <div
       className="factory-map-compositor"
       style={{ transform: focusTransform(focusedRoom) }}
     >
-      <svg viewBox="0 0 1116 430" className="block h-auto w-full min-w-[900px]" role="img" aria-label="呆大厨工厂 CAD 房间状态图">
+      <svg
+        viewBox={variant === "showroom" ? "130 35 986 385" : "0 0 1116 430"}
+        className="block h-auto w-full min-w-[900px]"
+        role="img"
+        aria-label={`${variant === "showroom" ? "净配菜" : "呆大厨"}工厂 CAD 房间状态图`}
+        data-variant={variant}
+      >
         <defs>
-          <pattern id="blueprint-grid" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M 18 0 L 0 0 0 18" fill="none" stroke="#dfe7f0" strokeWidth=".65" /></pattern>
+          <pattern id="blueprint-grid" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M 18 0 L 0 0 0 18" fill="none" stroke={variant === "showroom" ? "#29405a" : "#dfe7f0"} strokeWidth=".65" /></pattern>
           <mask id="factory-footprint-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="1116" height="430">
             <rect width="1116" height="430" fill="#fff" />
             <path d="M 140 342.59 H 222.68 V 408.62 H 326 V 430 H 140 Z" fill="#000" />
           </mask>
         </defs>
 
-        <rect width="1116" height="430" rx="14" fill="#f6f9fd" />
+        <rect width="1116" height="430" rx="14" fill={variant === "showroom" ? "#07111f" : "#f6f9fd"} />
         <rect x="16" y="20" width="1090" height="392" rx="12" fill="url(#blueprint-grid)" opacity=".72" />
-        <ArchitecturalBase />
-        {showRooms ? CAD_ROOM_MASKS.map((room) => (
+        <ArchitecturalBase variant={variant} />
+        {showRooms ? CAD_ROOM_GEOMETRIES.map((room) => (
           <RoomMask
             key={room.id}
             room={room}
             live={roomDataById.get(room.id)}
             selected={room.id === selectedId}
             focused={Boolean(focusedId)}
+            variant={variant}
             onSelect={() => onSelect(room.id)}
             onMonitor={() => onMonitorRoom(room.id)}
             onOpenRoom={() => onOpenRoom(room.id)}
           />
         )) : null}
+        {showBatchFlow ? (
+          <g aria-label="批次 PL20260813-028 正沿生产路线移动">
+            <path className="factory-batch-route" d="M185 198 L222 198 L222 174 L287 174 L287 147 L287 174 L397 174 L397 145 L397 174 L883 174 L883 202 L883 174 L883 147 L883 174 L1043 174 L1043 289 L1043 348" />
+            <circle
+              className="factory-batch-pulse"
+              cx="0"
+              cy="0"
+              r="6"
+              style={{ offsetDistance: `${Math.max(0, Math.min(1, batchProgress)) * 100}%` }}
+            />
+          </g>
+        ) : null}
       </svg>
     </div>
   );
