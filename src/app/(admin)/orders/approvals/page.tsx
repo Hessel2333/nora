@@ -1,1 +1,5 @@
-import { ApprovalsPage } from "@/features/orders/orders-pages"; export default function Page(){return <ApprovalsPage/>}
+import { OrderApprovalsPage } from "@/features/orders/order-approvals-page";
+
+export default function Page() {
+  return <OrderApprovalsPage />;
+}

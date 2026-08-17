@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { activityEvents, boms, customers, orders, products, twinZones, workOrders } from "./mock-data";
-import type { ActivityEvent, Bom, Customer, Product, SalesOrder, TwinZone, UserRole, WorkOrder, WorkOrderStatus } from "./types";
+import type { ActivityEvent, Bom, Customer, DocumentEvent, Product, SalesOrder, TwinZone, UserRole, WorkOrder, WorkOrderStatus } from "./types";
 
 interface NoraState {
   currentRole: UserRole;
@@ -16,13 +16,33 @@ interface NoraState {
   activities: ActivityEvent[];
   setRole: (role: UserRole) => void;
   addOrder: (order: SalesOrder) => void;
-  approveOrder: (id: string) => void;
+  updateOrder: (order: SalesOrder) => void;
+  submitOrder: (id: string) => void;
+  approveOrder: (id: string, comment?: string) => void;
+  returnOrder: (id: string, comment: string) => void;
   reconcileOrder: (id: string) => void;
   transitionWorkOrder: (id: string, status: WorkOrderStatus) => void;
   resetDemo: () => void;
 }
 
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const workflowTime = () =>
+  new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+
+const appendEvent = (order: SalesOrder, event: Omit<DocumentEvent, "id" | "at">): SalesOrder => ({
+  ...order,
+  events: [
+    ...(order.events ?? []),
+    { ...event, id: `event-${Date.now()}`, at: workflowTime() },
+  ],
+});
 
 const initialState = () => ({
   products: clone(products),
@@ -44,9 +64,42 @@ export const useNoraStore = create<NoraState>()(
         orders: [order, ...state.orders],
         activities: [{ id: `a-${Date.now()}`, title: "新订单", detail: `${order.code} 已创建`, time: "刚刚", tone: "info" }, ...state.activities],
       })),
-      approveOrder: (id) => set((state) => ({
-        orders: state.orders.map((order) => order.id === id ? { ...order, status: "approved" } : order),
+      updateOrder: (updatedOrder) => set((state) => ({
+        orders: state.orders.map((order) => order.id === updatedOrder.id ? updatedOrder : order),
+        activities: [{ id: `a-${Date.now()}`, title: "订单已更新", detail: `${updatedOrder.code} · ${updatedOrder.status === "pending" ? "已重新提交审核" : "草稿已保存"}`, time: "刚刚", tone: updatedOrder.status === "pending" ? "info" : "neutral" }, ...state.activities],
+      })),
+      submitOrder: (id) => set((state) => ({
+        orders: state.orders.map((order) =>
+          order.id === id
+            ? appendEvent(
+                { ...order, status: "pending" },
+                { type: "submitted", label: "提交审核", actor: "老板" },
+              )
+            : order,
+        ),
+        activities: [{ id: `a-${Date.now()}`, title: "订单待审核", detail: `${state.orders.find((order) => order.id === id)?.code ?? "订单"} 已提交审核`, time: "刚刚", tone: "warning" }, ...state.activities],
+      })),
+      approveOrder: (id, comment) => set((state) => ({
+        orders: state.orders.map((order) =>
+          order.id === id
+            ? appendEvent(
+                { ...order, status: "approved" },
+                { type: "approved", label: "审核通过", actor: "老板", comment },
+              )
+            : order,
+        ),
         activities: [{ id: `a-${Date.now()}`, title: "订单已审核", detail: `${state.orders.find((order) => order.id === id)?.code ?? "订单"} 已进入生产需求`, time: "刚刚", tone: "success" }, ...state.activities],
+      })),
+      returnOrder: (id, comment) => set((state) => ({
+        orders: state.orders.map((order) =>
+          order.id === id
+            ? appendEvent(
+                { ...order, status: "draft" },
+                { type: "returned", label: "退回修改", actor: "老板", comment },
+              )
+            : order,
+        ),
+        activities: [{ id: `a-${Date.now()}`, title: "订单已退回", detail: `${state.orders.find((order) => order.id === id)?.code ?? "订单"} · ${comment}`, time: "刚刚", tone: "warning" }, ...state.activities],
       })),
       reconcileOrder: (id) => set((state) => ({
         orders: state.orders.map((order) => order.id === id ? { ...order, status: "reconciled" } : order),
