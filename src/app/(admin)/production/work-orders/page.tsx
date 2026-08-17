@@ -1,1 +1,5 @@
-import { WorkOrdersPage } from "@/features/production/production-pages";export default function Page(){return <WorkOrdersPage/>}
+import { WorkOrdersPage } from "@/features/production/work-orders-page";
+
+export default function Page() {
+  return <WorkOrdersPage />;
+}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, ChartNoAxesCombined, Clock3, Focus, Minimize2, Radio, ThermometerSun, UserRound, Waves, Wrench } from "lucide-react";
+import { AlertTriangle, Camera, ChartNoAxesCombined, Clock3, Focus, Minimize2, Radio, ThermometerSun, UserRound, Waves, Wrench } from "lucide-react";
 import { Badge, Button, Card, IconBox, Progress } from "@/components/ui";
 import { zoneStatus } from "@/lib/utils";
 import type { FactoryRoomSnapshot } from "./room-monitoring";
@@ -24,11 +24,12 @@ function EnvironmentSummary({ room }: { room: FactoryRoomSnapshot }) {
   </div>;
 }
 
-export function RoomDetailPanel({ room, focused, onToggleFocus, onOpenMonitor }: {
+export function RoomDetailPanel({ room, focused, onToggleFocus, onOpenMonitor, onOpenCamera }: {
   room: FactoryRoomSnapshot;
   focused: boolean;
   onToggleFocus: () => void;
   onOpenMonitor: () => void;
+  onOpenCamera: () => void;
 }) {
   const status = zoneStatus[room.status];
   const operations = getRoomOperationsProfile(room);
@@ -78,7 +79,8 @@ export function RoomDetailPanel({ room, focused, onToggleFocus, onOpenMonitor }:
 
         <div className="grid grid-cols-2 gap-2">
           <Button size="sm" onClick={onOpenMonitor}><ChartNoAxesCombined size={15} />运行详情</Button>
-          <Button variant="secondary" size="sm" onClick={onToggleFocus}>{focused ? <Minimize2 size={15} /> : <Focus size={15} />}{focused ? "返回总览" : "聚焦房间"}</Button>
+          <Button variant="secondary" size="sm" onClick={onOpenCamera}><Camera size={15} />视频监控</Button>
+          <Button variant="secondary" size="sm" className="col-span-2" onClick={onToggleFocus}>{focused ? <Minimize2 size={15} /> : <Focus size={15} />}{focused ? "返回总览" : "聚焦房间"}</Button>
           {room.task?.workOrderId ? <Link href="/production/work-orders" className="focus-ring col-span-2 inline-flex h-8 items-center justify-center rounded-[9px] border border-[#dce3ed] bg-white px-3 text-xs font-medium text-[#263557] hover:bg-[#f6f8fb]">查看工单</Link> : null}
         </div>
       </div>

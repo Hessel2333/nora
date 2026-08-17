@@ -46,6 +46,15 @@ export interface Bom {
 
 export type OrderStatus = "draft" | "pending" | "approved" | "in_production" | "delivering" | "completed" | "reconciled";
 
+export interface DocumentEvent {
+  id: string;
+  type: "created" | "submitted" | "approved" | "returned" | "status_changed";
+  label: string;
+  actor: string;
+  at: string;
+  comment?: string;
+}
+
 export interface OrderLine {
   id: string;
   productId: string;
@@ -69,6 +78,7 @@ export interface SalesOrder {
   address: string;
   notes?: string;
   lines: OrderLine[];
+  events?: DocumentEvent[];
 }
 
 export interface Customer {

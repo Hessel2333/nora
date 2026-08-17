@@ -30,13 +30,22 @@ const CAMERA_NAMES: Record<string, string> = {
   R21: "发货缓冲主机位",
 };
 
+const CAMERA_POSTERS: Record<string, string> = {
+  R08: "/camera/showroom/r08-outer-packaging.jpg",
+  R09: "/camera/showroom/r09-meat-cutting.jpg",
+  R10: "/camera/showroom/r10-ingredient-weighing.jpg",
+  R14: "/camera/showroom/r14-cold-storage.jpg",
+  R15: "/camera/showroom/r15-meat-prep.jpg",
+  R21: "/camera/showroom/r21-dispatch.jpg",
+};
+
 export function getRoomCameraFeeds(room: FactoryRoomSnapshot): RoomCameraFeed[] {
   const normalizedId = room.id.replaceAll("+", "-");
   return [{
     id: `CAM-${normalizedId}-01`,
     name: CAMERA_NAMES[room.id] ?? `${room.name}主机位`,
     status: "online",
-    poster: "/camera/vegetable-room-demo.png",
+    poster: CAMERA_POSTERS[room.id] ?? "/camera/vegetable-room-demo.png",
     resolution: "1920 × 1080",
     fps: 25,
     recording: true,

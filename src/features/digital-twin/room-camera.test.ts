@@ -20,4 +20,14 @@ describe("room camera feeds", () => {
     expect(room).toBeDefined();
     expect(getRoomCameraFeeds(room!)[0].id).toBe("CAM-R03-R06-01");
   });
+
+  it("uses distinct generated camera views for the showroom production route", () => {
+    const roomById = new Map(rooms.map((room) => [room.id, room]));
+    const posters = ["R15", "R09", "R10", "R08", "R14", "R21"].map((roomId) =>
+      getRoomCameraFeeds(roomById.get(roomId)!)[0].poster,
+    );
+
+    expect(new Set(posters).size).toBe(posters.length);
+    expect(posters.every((poster) => poster.startsWith("/camera/showroom/"))).toBe(true);
+  });
 });

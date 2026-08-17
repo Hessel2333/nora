@@ -12,14 +12,6 @@ const sections = [
   ["numbering", "编号规则"], ["print-templates", "打印模板"], ["initialization", "初始化导入"],
 ] as const;
 
-const descriptions: Record<string, string> = {
-  company: "维护企业主体、证照与经营基础信息", organization: "管理工厂、车间、产线与汇报关系",
-  employees: "维护员工、工号、岗位与班次", suppliers: "统一管理供应商与结算信息",
-  access: "按角色控制演示导航与业务操作", dictionaries: "管理单位、分类、税率等公共数据",
-  numbering: "配置业务单据的自动编号规则", "print-templates": "维护箱签与配送单打印版式",
-  initialization: "批量校验和导入初始业务数据",
-};
-
 export function MasterDataPage({ section }: { section: string }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -31,7 +23,7 @@ export function MasterDataPage({ section }: { section: string }) {
     setOpen(false);
   };
   return <>
-    <PageHeader title={title} description={descriptions[section]} actions={<><Button variant="secondary"><FileUp size={16} />导入</Button><Button onClick={() => setOpen(true)}><Plus size={16} />{section === "initialization" ? "新建导入" : "新建"}</Button></>} />
+    <PageHeader title={title} actions={<><Button variant="secondary"><FileUp size={16} />导入</Button><Button onClick={() => setOpen(true)}><Plus size={16} />{section === "initialization" ? "新建导入" : "新建"}</Button></>} />
     <div className="mb-4 flex gap-2 overflow-x-auto pb-1">{sections.map(([key, label]) => <Link key={key} href={`/master-data/${key}`} className={`focus-ring shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium ${key === section ? "border-[#1768f2] bg-[#edf4ff] text-[#1768f2]" : "border-[#dfe5ee] bg-white text-[#65728a] hover:bg-[#f5f7fa]"}`}>{label}</Link>)}</div>
     <Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e8edf3] p-4"><div className="relative w-full max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b96a9]" size={16} /><input value={query} onChange={(e) => setQuery(e.target.value)} className={`${inputClass} pl-9`} placeholder={`搜索${title}`} /></div><div className="flex items-center gap-2 text-xs text-[#728099]"><CheckCircle2 size={15} className="text-[#08a879]" />数据完整度 96%</div></div>
       <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left"><thead className="bg-[#fafbfd] text-[11px] uppercase tracking-wide text-[#8792a6]"><tr><th className="px-5 py-3 font-semibold">编码</th><th className="px-5 py-3 font-semibold">名称</th><th className="px-5 py-3 font-semibold">业务信息</th><th className="px-5 py-3 font-semibold">状态</th><th className="px-5 py-3 text-right font-semibold">操作</th></tr></thead><tbody>{filtered.map((record) => <tr key={record.id} className="border-t border-[#edf0f4] hover:bg-[#fbfcfe]"><td className="px-5 py-4 font-mono text-xs text-[#56647e]">{record.code}</td><td className="px-5 py-4 font-medium text-[#263451]">{record.name}</td><td className="px-5 py-4 text-sm text-[#69768e]">{record.meta}</td><td className="px-5 py-4"><Badge tone={record.status === "正常" ? "success" : "warning"}>{record.status}</Badge></td><td className="px-5 py-4 text-right"><button className="focus-ring rounded-md px-2 py-1 text-xs font-medium text-[#1768f2] hover:bg-[#edf4ff]">编辑</button></td></tr>)}</tbody></table></div>

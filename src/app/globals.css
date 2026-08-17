@@ -1,36 +1,71 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f9fc;
+  --canvas: #f5f7f9;
   --surface: #ffffff;
-  --surface-muted: #f4f7fb;
-  --foreground: #111c3b;
-  --muted: #6f7c96;
-  --border: #e4e9f1;
-  --primary: #1768f2;
-  --primary-soft: #edf4ff;
-  --success: #08a879;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --purple: #6858e8;
-  --shadow: 0 8px 30px rgba(28, 52, 91, 0.06);
+  --surface-subtle: #fafafa;
+  --surface-muted: #f2f4f7;
+  --text-primary: #101828;
+  --text-secondary: #475467;
+  --text-tertiary: #667085;
+  --stroke: #dfe3e8;
+  --stroke-subtle: #e9ecf0;
+  --interactive: #0875e1;
+  --interactive-hover: #0668c8;
+  --interactive-soft: #edf5ff;
+  --status-success: #078663;
+  --status-success-hover: #067557;
+  --status-success-soft: #e9f8f3;
+  --status-warning: #b76e00;
+  --status-warning-soft: #fff4df;
+  --status-danger: #d92d20;
+  --status-danger-hover: #bd2419;
+  --status-danger-soft: #fff0ef;
+  --status-ai: #6554d9;
+  --status-ai-soft: #f0edff;
+  --control-placeholder: #98a2b3;
+  --progress-track: #e9ecf0;
+  --overlay: rgba(16, 24, 40, 0.42);
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --shadow-raised: 0 20px 50px rgba(16, 24, 40, 0.13), 0 2px 8px rgba(16, 24, 40, 0.06);
+  --focus-ring: 0 0 0 2px var(--surface), 0 0 0 4px rgba(8, 117, 225, 0.72);
+  --motion-fast: 160ms;
+  --motion-standard: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Compatibility aliases. New shared UI should use the semantic roles above. */
+  --background: var(--canvas);
+  --foreground: var(--text-primary);
+  --muted: var(--text-tertiary);
+  --border: var(--stroke);
+  --primary: var(--interactive);
+  --primary-soft: var(--interactive-soft);
+  --success: var(--status-success);
+  --warning: var(--status-warning);
+  --danger: var(--status-danger);
+  --purple: var(--status-ai);
 }
 
 * { box-sizing: border-box; }
-html { background: var(--background); }
+html { background: var(--canvas); scroll-behavior: smooth; scrollbar-gutter: stable; }
 body {
   margin: 0;
   overflow-x: hidden;
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--canvas);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
   font-size: 14px;
   line-height: 1.5;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: "tnum" 1, "ss01" 1;
 }
 button, input, select, textarea { font: inherit; }
-button, a { -webkit-tap-highlight-color: transparent; }
+button, a, input, select, textarea { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), a[href] { cursor: pointer; }
+button:not(:disabled) { transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, box-shadow var(--motion-fast) ease; }
+button:disabled { cursor: not-allowed; }
 a { color: inherit; text-decoration: none; }
 ::selection { background: #cfe1ff; color: #0f3d91; }
 
@@ -39,15 +74,55 @@ a { color: inherit; text-decoration: none; }
 .nora-scrollbar::-webkit-scrollbar-thumb { background: #c8d1e0; border-radius: 99px; }
 
 .panel {
+  min-width: 0;
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(30, 48, 82, 0.025);
+  border: 1px solid var(--stroke-subtle);
+  border-radius: var(--radius-card);
+  box-shadow: none;
 }
 
 .focus-ring:focus-visible {
-  outline: 3px solid rgba(23, 104, 242, 0.22);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.skip-link {
+  position: fixed;
+  left: 16px;
+  top: 12px;
+  z-index: 100;
+  transform: translateY(-150%);
+  border-radius: 10px;
+  background: #101828;
+  color: white;
+  padding: 10px 14px;
+  font-weight: 600;
+  transition: transform 180ms ease;
+}
+.skip-link:focus { transform: translateY(0); }
+
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+.glass-bar {
+  background: rgba(255, 255, 255, .86);
+  border-color: rgba(219, 226, 236, .9);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .75) inset;
+  backdrop-filter: saturate(150%) blur(18px);
+  -webkit-backdrop-filter: saturate(150%) blur(18px);
+}
+
+.horizontal-snap {
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+.horizontal-snap::-webkit-scrollbar { display: none; }
+.horizontal-snap > * { scroll-snap-align: start; }
+
+[role="dialog"] { overscroll-behavior: contain; }
+
+@media (max-width: 639px) {
+  input, select, textarea { font-size: 16px; }
 }
 
 .map-grid {
@@ -69,6 +144,140 @@ a { color: inherit; text-decoration: none; }
   will-change: transform;
 }
 
+.factory-3d-stage canvas {
+  touch-action: none;
+}
+
+.factory-3d-label {
+  pointer-events: auto;
+  display: grid;
+  min-width: 56px;
+  gap: 1px;
+  transform: translate(-50%, -50%);
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.58);
+  padding: 3px 5px;
+  color: #34425e;
+  box-shadow: none;
+  text-align: left;
+  backdrop-filter: blur(8px);
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.factory-3d-label:hover,
+.factory-3d-label:focus-visible,
+.factory-3d-label.is-selected {
+  border-color: #1768f2;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 7px 20px rgba(23, 104, 242, 0.16);
+  outline: none;
+}
+
+.factory-3d-label.is-selected {
+  transform: translate(-50%, -50%) translateY(-3px);
+}
+
+.factory-3d-label__id {
+  font-size: 6.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: #1768f2;
+}
+
+.factory-3d-label strong {
+  font-size: 8px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.factory-3d-label__metric {
+  display: none;
+  font-size: 7px;
+  line-height: 1.25;
+  color: #728096;
+  white-space: nowrap;
+}
+
+.factory-3d-label.is-selected .factory-3d-label__metric {
+  display: block;
+}
+
+button.explosion-mode-button {
+  transition: color 320ms cubic-bezier(.16, 1, .3, 1);
+}
+
+button.explosion-stage-node {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: opacity, transform;
+  transition-property: opacity, transform;
+  transition-duration: 680ms;
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+}
+
+button.explosion-stage-node[data-stage-state="leaving"],
+.explosion-stage-support[data-stage-state="leaving"] {
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(.55, .06, .68, .19);
+}
+
+@keyframes explosionStageEnter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+button.explosion-stage-node[data-stage-state="entering"] {
+  animation: explosionStageEnter 680ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.explosion-stage-support {
+  will-change: opacity, transform;
+  transition-property: opacity, transform;
+  transition-duration: 680ms;
+  transition-timing-function: cubic-bezier(.16, 1, .3, 1);
+}
+
+button.explosion-stage-node:focus-visible {
+  outline: none;
+}
+
+button.explosion-stage-node:focus-visible .explosion-selection-halo {
+  opacity: 1;
+  transform: scale(1) translateZ(0);
+}
+
+.explosion-food-image {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  image-rendering: auto;
+}
+
+.explosion-selection-halo {
+  z-index: -1;
+  opacity: 0;
+  background: radial-gradient(ellipse, rgba(216, 142, 106, .2) 0%, rgba(216, 142, 106, .08) 44%, transparent 72%);
+  transform: scale(.9) translateZ(0);
+  transition: opacity 260ms cubic-bezier(.16, 1, .3, 1), transform 420ms cubic-bezier(.16, 1, .3, 1);
+}
+
+.explosion-selection-halo.is-visible {
+  opacity: 1;
+  transform: scale(1) translateZ(0);
+}
+
+button.explosion-callout {
+  transition: color 280ms cubic-bezier(.16, 1, .3, 1);
+}
+
+button.explosion-material-row {
+  transition: background-color 280ms cubic-bezier(.16, 1, .3, 1), border-color 280ms cubic-bezier(.16, 1, .3, 1), box-shadow 280ms cubic-bezier(.16, 1, .3, 1);
+}
+
+button.explosion-action-button {
+  transition: background-color 260ms cubic-bezier(.16, 1, .3, 1), transform 260ms cubic-bezier(.16, 1, .3, 1);
+}
+
 @keyframes explosionInspectorEnter {
   from {
     opacity: 0;
@@ -82,6 +291,19 @@ a { color: inherit; text-decoration: none; }
   }
 }
 
+@keyframes explosionInspectorExit {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    filter: blur(1.5px);
+    transform: translate3d(-6px, 0, 0);
+  }
+}
+
 @keyframes explosionCalloutEnter {
   from {
     opacity: 0;
@@ -90,6 +312,17 @@ a { color: inherit; text-decoration: none; }
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes explosionCalloutExit {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0);
   }
 }
 
@@ -105,11 +338,21 @@ a { color: inherit; text-decoration: none; }
 }
 
 .explosion-inspector-enter {
-  animation: explosionInspectorEnter 480ms cubic-bezier(.22, 1, .36, 1) both;
+  animation: explosionInspectorEnter 520ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.explosion-inspector-exit {
+  pointer-events: none;
+  animation: explosionInspectorExit 190ms cubic-bezier(.55, .06, .68, .19) both;
 }
 
 .explosion-callout-enter {
-  animation: explosionCalloutEnter 580ms cubic-bezier(.22, 1, .36, 1) both;
+  animation: explosionCalloutEnter 540ms cubic-bezier(.16, 1, .3, 1) both;
+}
+
+.explosion-callout-exit {
+  pointer-events: none;
+  animation: explosionCalloutExit 170ms cubic-bezier(.55, .06, .68, .19) both;
 }
 
 .explosion-detail-enter {
@@ -121,6 +364,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
   .factory-map-compositor { transition: none; }
+  .factory-3d-label { transition: none; }
 }

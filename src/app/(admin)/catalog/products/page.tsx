@@ -1,2 +1,5 @@
-import { ProductsPage } from "@/features/catalog/catalog-pages";
-export default function Page(){return <ProductsPage/>}
+import { ProductsPage } from "@/features/catalog/products-page";
+
+export default function Page() {
+  return <ProductsPage />;
+}
