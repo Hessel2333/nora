@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CheckCircle2, FilePenLine, Send } from "lucide-react";
 import {
   DocumentActionBar,
@@ -96,6 +96,8 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
         },
   );
   const [errors, setErrors] = useState<FormErrors>(emptyErrors);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [savedOrder, setSavedOrder] = useState<
     { id: string; code: string; status: OrderStatus } | undefined
   >();
@@ -111,6 +113,29 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
       })),
     [products],
   );
+
+  useEffect(() => {
+    if (existingOrder) {
+      setDraft({
+        customerId: existingOrder.customerId,
+        deliveryAt: existingOrder.deliveryAt.replace(" ", "T"),
+        source: existingOrder.source,
+        notes: existingOrder.notes ?? "",
+        lines: existingOrder.lines.map((line) => ({ id: line.id, itemId: line.productId, quantity: line.quantity })),
+      });
+      return;
+    }
+    if (!orderId && customers.length > 0 && products.length > 0) {
+      setDraft((current) => ({
+        ...current,
+        customerId: customers.some((customer) => customer.id === current.customerId) ? current.customerId : customers[0].id,
+        lines: current.lines.map((line, index) => ({
+          ...line,
+          itemId: products.some((product) => product.id === line.itemId) ? line.itemId : products[Math.min(index, products.length - 1)].id,
+        })),
+      }));
+    }
+  }, [customers, existingOrder, orderId, products]);
   const itemMap = useMemo(
     () => new Map(products.map((product) => [product.id, product])),
     [products],
@@ -140,7 +165,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
     return !next.customerId && !next.deliveryAt && Object.keys(next.lines).length === 0;
   };
 
-  const save = (status: "draft" | "pending") => {
+  const save = async (status: "draft" | "pending") => {
     if (!validate()) return;
     const customer = customers.find((item) => item.id === draft.customerId);
     if (!customer) return;
@@ -165,6 +190,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
       phone: customer.phone,
       address: customer.address,
       notes: draft.notes.trim() || undefined,
+      revision: existingOrder?.revision,
       lines: draft.lines.map((line, index) => {
         const product = itemMap.get(line.itemId)!;
         return {
@@ -209,9 +235,16 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
           ],
     };
 
-    if (existingOrder) updateOrder(order);
-    else addOrder(order);
-    setSavedOrder({ id: order.id, code: order.code, status: order.status });
+    setSaving(true);
+    setSaveError("");
+    try {
+      const persisted = existingOrder ? await updateOrder(order) : await addOrder(order);
+      setSavedOrder({ id: persisted.id, code: persisted.code, status: persisted.status });
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "订单保存失败，请稍后重试。");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (savedOrder) {
@@ -250,7 +283,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        save("pending");
+        void save("pending");
       }}
       noValidate
     >
@@ -405,6 +438,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
         }
       />
 
+      {saveError && <p className="mb-3 text-sm text-[var(--status-danger)]" role="alert">{saveError}</p>}
       <DocumentActionBar hint="保存草稿不会进入审核；提交审核后，审核人员可通过或退回修改。">
         <ButtonLink
           href={existingOrder ? `/orders/${existingOrder.id}` : "/orders"}
@@ -412,11 +446,11 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
         >
           取消
         </ButtonLink>
-        <Button type="button" variant="secondary" onClick={() => save("draft")}>
+        <Button type="button" variant="secondary" disabled={saving} onClick={() => void save("draft")}>
           <FilePenLine size={16} />
           保存草稿
         </Button>
-        <Button type="submit">
+        <Button type="submit" disabled={saving}>
           <Send size={16} />
           提交审核
         </Button>

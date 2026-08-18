@@ -246,13 +246,42 @@ function BomCost({
   );
 }
 
-export function BomsPage({ detail = false }: { detail?: boolean }) {
-  const bom = useNoraStore((s) => s.boms[0]);
+const bomStatus = {
+  effective: ["已生效", "success"],
+  draft: ["草稿", "neutral"],
+  retired: ["已停用", "warning"],
+} as const;
+
+function nextVersion(current: string) {
+  const match = current.match(/^(.*?)(\d+)$/);
+  return match ? `${match[1]}${Number(match[2]) + 1}` : `${current}.1`;
+}
+
+export function BomsPage({ detail = false, bomId }: { detail?: boolean; bomId?: string }) {
+  const boms = useNoraStore((state) => state.boms);
+  const bom = boms.find((item) => item.id === bomId) ?? boms[0];
+  const copyBomVersion = useNoraStore((state) => state.copyBomVersion);
+  const publishBomVersion = useNoraStore((state) => state.publishBomVersion);
   const [compare, setCompare] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [operationError, setOperationError] = useState("");
+  if (!bom) return <Card className="p-8 text-sm text-[var(--text-tertiary)]">暂无 BOM 数据</Card>;
   const total = bom.items.reduce(
     (sum, i) => sum + (i.netQuantity / i.yieldRate) * i.unitCost,
     0,
   );
+  const runVersionAction = async () => {
+    setSaving(true);
+    setOperationError("");
+    try {
+      if (bom.status === "draft" && bom.versionId) await publishBomVersion(bom.versionId);
+      else await copyBomVersion(bom.id, nextVersion(bom.version), bom.versionId);
+    } catch (error) {
+      setOperationError(error instanceof Error ? error.message : "BOM 操作失败，请稍后重试。");
+    } finally {
+      setSaving(false);
+    }
+  };
   return (
     <>
       <PageHeader
@@ -263,13 +292,14 @@ export function BomsPage({ detail = false }: { detail?: boolean }) {
               <GitCompare size={16} />
               {compare ? "关闭比较" : "版本比较"}
             </Button>
-            <Button>
-              <PackagePlus size={16} />
-              复制新版本
+            <Button disabled={saving} onClick={() => void runVersionAction()}>
+              {bom.status === "draft" ? <ShieldCheck size={16} /> : <PackagePlus size={16} />}
+              {bom.status === "draft" ? "发布版本" : "复制新版本"}
             </Button>
           </>
         }
       />
+      {operationError && <p className="mb-4 text-sm text-[var(--status-danger)]" role="alert">{operationError}</p>}
       {!detail && (
         <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
           <Card className="p-3">
@@ -285,21 +315,21 @@ export function BomsPage({ detail = false }: { detail?: boolean }) {
                 />
               </div>
             </div>
-            {["宫保鸡丁", "鱼香肉丝", "清炒时蔬", "番茄炒蛋"].map((name, i) => (
+            {boms.map((item) => (
               <Link
-                key={name}
-                href={i === 0 ? `/catalog/boms/${bom.id}` : "#"}
-                className={`mb-1 flex items-center gap-3 rounded-xl p-3 ${i === 0 ? "bg-[#edf4ff]" : "hover:bg-[#f5f7fa]"}`}
+                key={item.id}
+                href={`/catalog/boms/${item.id}`}
+                className={`mb-1 flex items-center gap-3 rounded-xl p-3 ${item.id === bom.id ? "bg-[#edf4ff]" : "hover:bg-[#f5f7fa]"}`}
               >
                 <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg ${i === 0 ? "bg-[#1768f2] text-white" : "bg-[#eef1f5] text-[#68758d]"}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg ${item.id === bom.id ? "bg-[#1768f2] text-white" : "bg-[#eef1f5] text-[#68758d]"}`}
                 >
                   <Box size={17} />
                 </span>
                 <span className="flex-1">
-                  <b className="block text-sm text-[#2b3955]">{name}</b>
+                  <b className="block text-sm text-[#2b3955]">{item.productName}</b>
                   <span className="text-[11px] text-[#8a95a8]">
-                    {i === 0 ? "V2.1 · 已生效" : "V1.0 · 已生效"}
+                    {item.version} · {bomStatus[item.status][0]}
                   </span>
                 </span>
                 <ChevronRight size={15} className="text-[#9ba5b6]" />
@@ -332,10 +362,9 @@ function BomDetail({
             <b className="mt-1 block text-base">{bom.productName}</b>
           </div>
           <div>
-            <p className="text-xs text-[#8692a6]">当前版本</p>
             <div className="mt-1 flex gap-2">
               <b>{bom.version}</b>
-              <Badge tone="success">已生效</Badge>
+              <Badge tone={bomStatus[bom.status][1]}>{bomStatus[bom.status][0]}</Badge>
             </div>
           </div>
           <div>

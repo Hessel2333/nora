@@ -11,3 +11,5 @@ out
 *.tsbuildinfo
 .env*
 !.env.example
+/apps/api/dist/
+/apps/api/src/generated/prisma/
