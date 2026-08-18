@@ -1,14 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import { CheckCircle2, ChevronRight, ClipboardCheck } from "lucide-react";
-import { Badge, Button, Card, PageHeader } from "@/components/ui";
+import { Badge, ButtonLink, Card, PageHeader } from "@/components/ui";
 import { useNoraStore } from "@/lib/store";
 import type { SalesOrder } from "@/lib/types";
 import { formatCurrency } from "@/lib/utils";
 import { useShallow } from "zustand/react/shallow";
-import { OrderApprovalDialog } from "@/features/orders/order-approval-dialog";
 
 const totalOf = (order: SalesOrder) =>
   order.lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
@@ -19,9 +17,6 @@ export function OrderApprovalsPage() {
       state.orders.filter((order) => order.status === "pending"),
     ),
   );
-  const [reviewingId, setReviewingId] = useState<string>();
-  const reviewingOrder = rows.find((order) => order.id === reviewingId);
-
   return (
     <>
       <PageHeader
@@ -98,14 +93,14 @@ export function OrderApprovalsPage() {
                   </strong>
                 </div>
 
-                <Button
+                <ButtonLink
                   size="sm"
                   className="w-full"
-                  onClick={() => setReviewingId(order.id)}
+                  href={`/orders/${order.id}/review`}
                 >
                   审核
                   <ChevronRight size={14} />
-                </Button>
+                </ButtonLink>
               </article>
             ))}
           </div>
@@ -123,14 +118,6 @@ export function OrderApprovalsPage() {
           </p>
         </Card>
       )}
-
-      <OrderApprovalDialog
-        order={reviewingOrder}
-        open={Boolean(reviewingOrder)}
-        onOpenChange={(open) => {
-          if (!open) setReviewingId(undefined);
-        }}
-      />
     </>
   );
 }

@@ -3,9 +3,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { activityEvents, boms, customers, orders, products, twinZones, workOrders } from "./mock-data";
+import { noraApi } from "./nora-api";
 import type { ActivityEvent, Bom, Customer, DocumentEvent, Product, SalesOrder, TwinZone, UserRole, WorkOrder, WorkOrderStatus } from "./types";
 
 interface NoraState {
+  backendStatus: "idle" | "loading" | "ready" | "offline";
+  backendError?: string;
   currentRole: UserRole;
   products: Product[];
   boms: Bom[];
@@ -15,11 +18,14 @@ interface NoraState {
   zones: TwinZone[];
   activities: ActivityEvent[];
   setRole: (role: UserRole) => void;
-  addOrder: (order: SalesOrder) => void;
-  updateOrder: (order: SalesOrder) => void;
-  submitOrder: (id: string) => void;
-  approveOrder: (id: string, comment?: string) => void;
-  returnOrder: (id: string, comment: string) => void;
+  hydrateBackend: () => Promise<void>;
+  addOrder: (order: SalesOrder) => Promise<SalesOrder>;
+  updateOrder: (order: SalesOrder) => Promise<SalesOrder>;
+  submitOrder: (id: string) => Promise<SalesOrder>;
+  approveOrder: (id: string, comment?: string) => Promise<SalesOrder>;
+  returnOrder: (id: string, comment: string) => Promise<SalesOrder>;
+  copyBomVersion: (id: string, version: string, sourceVersionId?: string) => Promise<Bom>;
+  publishBomVersion: (versionId: string) => Promise<Bom>;
   reconcileOrder: (id: string) => void;
   transitionWorkOrder: (id: string, status: WorkOrderStatus) => void;
   resetDemo: () => void;
@@ -56,51 +62,87 @@ const initialState = () => ({
 
 export const useNoraStore = create<NoraState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       currentRole: "owner",
+      backendStatus: "idle",
       ...initialState(),
       setRole: (currentRole) => set({ currentRole }),
-      addOrder: (order) => set((state) => ({
-        orders: [order, ...state.orders],
-        activities: [{ id: `a-${Date.now()}`, title: "新订单", detail: `${order.code} 已创建`, time: "刚刚", tone: "info" }, ...state.activities],
-      })),
-      updateOrder: (updatedOrder) => set((state) => ({
-        orders: state.orders.map((order) => order.id === updatedOrder.id ? updatedOrder : order),
-        activities: [{ id: `a-${Date.now()}`, title: "订单已更新", detail: `${updatedOrder.code} · ${updatedOrder.status === "pending" ? "已重新提交审核" : "草稿已保存"}`, time: "刚刚", tone: updatedOrder.status === "pending" ? "info" : "neutral" }, ...state.activities],
-      })),
-      submitOrder: (id) => set((state) => ({
-        orders: state.orders.map((order) =>
-          order.id === id
-            ? appendEvent(
-                { ...order, status: "pending" },
-                { type: "submitted", label: "提交审核", actor: "老板" },
-              )
-            : order,
-        ),
-        activities: [{ id: `a-${Date.now()}`, title: "订单待审核", detail: `${state.orders.find((order) => order.id === id)?.code ?? "订单"} 已提交审核`, time: "刚刚", tone: "warning" }, ...state.activities],
-      })),
-      approveOrder: (id, comment) => set((state) => ({
-        orders: state.orders.map((order) =>
-          order.id === id
-            ? appendEvent(
-                { ...order, status: "approved" },
-                { type: "approved", label: "审核通过", actor: "老板", comment },
-              )
-            : order,
-        ),
-        activities: [{ id: `a-${Date.now()}`, title: "订单已审核", detail: `${state.orders.find((order) => order.id === id)?.code ?? "订单"} 已进入生产需求`, time: "刚刚", tone: "success" }, ...state.activities],
-      })),
-      returnOrder: (id, comment) => set((state) => ({
-        orders: state.orders.map((order) =>
-          order.id === id
-            ? appendEvent(
-                { ...order, status: "draft" },
-                { type: "returned", label: "退回修改", actor: "老板", comment },
-              )
-            : order,
-        ),
-        activities: [{ id: `a-${Date.now()}`, title: "订单已退回", detail: `${state.orders.find((order) => order.id === id)?.code ?? "订单"} · ${comment}`, time: "刚刚", tone: "warning" }, ...state.activities],
-      })),
+      hydrateBackend: async () => {
+        const current = get();
+        if (current.backendStatus === "loading" || current.backendStatus === "ready") return;
+        set({ backendStatus: "loading", backendError: undefined });
+        try {
+          const data = await noraApi.bootstrap();
+          set({ ...data, backendStatus: "ready", backendError: undefined });
+        } catch (error) {
+          set({ backendStatus: "offline", backendError: error instanceof Error ? error.message : "后端服务不可用" });
+        }
+      },
+      addOrder: async (order) => {
+        const persisted = get().backendStatus === "ready" ? await noraApi.createOrder(order) : order;
+        set((state) => ({
+          orders: [persisted, ...state.orders],
+          activities: [{ id: `a-${Date.now()}`, title: "新订单", detail: `${persisted.code} 已创建`, time: "刚刚", tone: "info" }, ...state.activities],
+        }));
+        return persisted;
+      },
+      updateOrder: async (updatedOrder) => {
+        const persisted = get().backendStatus === "ready" ? await noraApi.updateOrder(updatedOrder) : updatedOrder;
+        set((state) => ({
+          orders: state.orders.map((order) => order.id === persisted.id ? persisted : order),
+          activities: [{ id: `a-${Date.now()}`, title: "订单已更新", detail: `${persisted.code} · ${persisted.status === "pending" ? "已重新提交审核" : "草稿已保存"}`, time: "刚刚", tone: persisted.status === "pending" ? "info" : "neutral" }, ...state.activities],
+        }));
+        return persisted;
+      },
+      submitOrder: async (id) => {
+        const state = get();
+        const local = state.orders.find((order) => order.id === id);
+        if (!local) throw new Error("订单不存在");
+        const persisted = state.backendStatus === "ready"
+          ? await noraApi.submitOrder(id)
+          : appendEvent({ ...local, status: "pending" }, { type: "submitted", label: "提交审核", actor: "老板" });
+        set((current) => ({
+          orders: current.orders.map((order) => order.id === id ? persisted : order),
+          activities: [{ id: `a-${Date.now()}`, title: "订单待审核", detail: `${persisted.code} 已提交审核`, time: "刚刚", tone: "warning" }, ...current.activities],
+        }));
+        return persisted;
+      },
+      approveOrder: async (id, comment) => {
+        const state = get();
+        const local = state.orders.find((order) => order.id === id);
+        if (!local) throw new Error("订单不存在");
+        const persisted = state.backendStatus === "ready"
+          ? await noraApi.approveOrder(id, comment)
+          : appendEvent({ ...local, status: "approved" }, { type: "approved", label: "审核通过", actor: "老板", comment });
+        set((current) => ({
+          orders: current.orders.map((order) => order.id === id ? persisted : order),
+          activities: [{ id: `a-${Date.now()}`, title: "订单已审核", detail: `${persisted.code} 已进入生产需求`, time: "刚刚", tone: "success" }, ...current.activities],
+        }));
+        return persisted;
+      },
+      returnOrder: async (id, comment) => {
+        const state = get();
+        const local = state.orders.find((order) => order.id === id);
+        if (!local) throw new Error("订单不存在");
+        const persisted = state.backendStatus === "ready"
+          ? await noraApi.returnOrder(id, comment)
+          : appendEvent({ ...local, status: "draft" }, { type: "returned", label: "退回修改", actor: "老板", comment });
+        set((current) => ({
+          orders: current.orders.map((order) => order.id === id ? persisted : order),
+          activities: [{ id: `a-${Date.now()}`, title: "订单已退回", detail: `${persisted.code} · ${comment}`, time: "刚刚", tone: "warning" }, ...current.activities],
+        }));
+        return persisted;
+      },
+      copyBomVersion: async (id, version, sourceVersionId) => {
+        const updated = await noraApi.copyBomVersion(id, version, sourceVersionId);
+        set((state) => ({ boms: state.boms.map((bom) => bom.id === id ? updated : bom) }));
+        return updated;
+      },
+      publishBomVersion: async (versionId) => {
+        const updated = await noraApi.publishBomVersion(versionId);
+        set((state) => ({ boms: state.boms.map((bom) => bom.id === updated.id ? updated : bom) }));
+        return updated;
+      },
       reconcileOrder: (id) => set((state) => ({
         orders: state.orders.map((order) => order.id === id ? { ...order, status: "reconciled" } : order),
       })),
@@ -116,7 +158,16 @@ export const useNoraStore = create<NoraState>()(
           activities: [{ id: `a-${Date.now()}`, title: status === "completed" ? "工单已完成" : "工单状态更新", detail: `${workOrder.code} · ${workOrder.productName}`, time: "刚刚", tone: status === "completed" ? "success" : "info" }, ...state.activities],
         };
       }),
-      resetDemo: () => set({ currentRole: "owner", ...initialState() }),
+      resetDemo: () => {
+        if (get().backendStatus === "ready") {
+          set({ backendStatus: "loading", backendError: undefined });
+          void noraApi.bootstrap()
+            .then((data) => set({ ...data, currentRole: "owner", backendStatus: "ready", backendError: undefined }))
+            .catch((error) => set({ backendStatus: "offline", backendError: error instanceof Error ? error.message : "后端服务不可用" }));
+          return;
+        }
+        set({ currentRole: "owner", backendStatus: "idle", backendError: undefined, ...initialState() });
+      },
     }),
     {
       name: "nora-demo-v1",

@@ -33,15 +33,25 @@ export interface BomItem {
 
 export interface Bom {
   id: string;
+  code?: string;
   productId: string;
   productName: string;
+  versionId?: string;
   version: string;
   previousVersion: string;
   outputQuantity: number;
   outputUnit: string;
   status: "effective" | "draft" | "retired";
   effectiveAt: string;
+  revision?: number;
   items: BomItem[];
+  versions?: Array<{
+    id: string;
+    version: string;
+    status: "effective" | "draft" | "retired";
+    effectiveAt: string | null;
+    revision: number;
+  }>;
 }
 
 export type OrderStatus = "draft" | "pending" | "approved" | "in_production" | "delivering" | "completed" | "reconciled";
@@ -58,6 +68,7 @@ export interface DocumentEvent {
 export interface OrderLine {
   id: string;
   productId: string;
+  productCode?: string;
   productName: string;
   quantity: number;
   unit: string;
@@ -77,8 +88,45 @@ export interface SalesOrder {
   phone: string;
   address: string;
   notes?: string;
+  revision?: number;
   lines: OrderLine[];
   events?: DocumentEvent[];
+}
+
+export type ProductionDemandStatus =
+  | "pending_planning"
+  | "partially_planned"
+  | "planned"
+  | "completed"
+  | "cancelled";
+
+export interface ProductionDemandLine {
+  id: string;
+  salesOrderLineId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  requiredQuantity: number;
+  unit: string;
+  bomReady: boolean;
+  selectedBomVersionId?: string;
+  selectedBomVersion?: string;
+}
+
+export interface ProductionDemand {
+  id: string;
+  code: string;
+  salesOrderId: string;
+  factoryCode: string;
+  factoryName: string;
+  requiredAt: string;
+  status: ProductionDemandStatus;
+  approvedAt: string;
+  createdAt: string;
+  lines: ProductionDemandLine[];
+  lineCount: number;
+  readyLineCount: number;
+  missingBomCount: number;
 }
 
 export interface Customer {

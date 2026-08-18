@@ -4,7 +4,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Boxes,
   ChevronDown,
@@ -180,12 +180,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState("");
   const router = useRouter();
-  const { currentRole, setRole, resetDemo } = useNoraStore();
+  const { currentRole, setRole, resetDemo, backendStatus } = useNoraStore();
+  const hydrateBackend = useNoraStore((state) => state.hydrateBackend);
   const current = roles.find((role) => role.value === currentRole) ?? roles[0];
   const filtered = useMemo(
     () => commands.filter(([label]) => label.includes(query.trim())),
     [query],
   );
+
+  useEffect(() => {
+    void hydrateBackend();
+  }, [hydrateBackend]);
 
   const changeRole = (role: UserRole) => {
     setRole(role);
@@ -292,7 +297,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     className="focus-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-xs text-[var(--text-secondary)] outline-none hover:bg-[var(--surface-muted)]"
                   >
                     <RotateCcw size={15} />
-                    重置演示数据
+                    {backendStatus === "ready" ? "重新同步数据" : "重置演示数据"}
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
