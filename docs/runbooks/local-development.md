@@ -1,0 +1,88 @@
+# 本地开发手册
+
+## 环境要求
+
+- Node.js 20 以上，推荐当前 LTS
+- pnpm 11
+- Docker Desktop 或兼容的 Docker Engine
+- Docker Compose
+
+## 首次启动
+
+```bash
+cp .env.example .env
+pnpm install
+pnpm dev:full
+```
+
+`dev:full` 会依次执行：
+
+1. 启动 `postgres:16.13-alpine` 容器并等待健康检查通过。
+2. 执行已提交的 Prisma migrations。
+3. 幂等初始化 Nora 演示组织、客户、商品、订单和 BOM。
+4. 并行启动 Next.js 与 NestJS。
+
+Seed 不会覆盖已有组织数据；检测到 `NORA-DEMO` 后会直接跳过。
+
+## 单独运行
+
+```bash
+pnpm db:up
+pnpm db:deploy
+pnpm db:seed
+pnpm dev:api
+pnpm dev:web
+```
+
+## 数据库变更
+
+先修改 `apps/api/prisma/schema.prisma`，然后执行：
+
+```bash
+pnpm db:migrate -- --name describe_change
+pnpm db:generate
+pnpm typecheck
+pnpm test
+```
+
+必须提交生成的 migration。不要直接修改已进入主分支的 migration，也不要用 `db push` 代替可审查的迁移。
+
+## 健康检查
+
+```bash
+curl http://localhost:3100/api/v1/health
+curl http://localhost:3100/api/v1/orders
+curl http://localhost:3100/api/v1/boms
+```
+
+或执行只读 Smoke Test：
+
+```bash
+pnpm test:smoke
+```
+
+Swagger UI 位于 `http://localhost:3100/api/docs`。
+
+## 常见问题
+
+### Docker API 不可用
+
+先启动 Docker Desktop，再运行 `pnpm db:up`。
+
+### 54329 端口占用
+
+修改 `compose.yaml` 的宿主机端口，并同步修改 `.env` 中的 `DATABASE_URL`。
+
+### 前端仍显示演示数据
+
+确认 API 健康检查通过，并检查 `.env` 中的 `NEXT_PUBLIC_API_BASE_URL`。前端在 API 不可用时会保留离线 Demo 数据，避免界面完全失效。
+
+## 停止服务
+
+结束 Web/API 进程后运行：
+
+```bash
+pnpm db:down
+```
+
+该命令保留数据库卷。除非明确需要重建本地数据，不要删除 `nora_postgres_data` 卷。

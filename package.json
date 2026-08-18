@@ -4,11 +4,24 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:web": "next dev",
+    "dev:api": "pnpm --dir apps/api start:dev",
+    "dev:full": "pnpm setup:local && concurrently -n WEB,API -c blue,green \"pnpm dev:web\" \"pnpm dev:api\"",
     "build": "next build",
+    "build:api": "pnpm --dir apps/api build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit && pnpm --dir apps/api typecheck",
+    "test": "vitest run --exclude 'apps/api/**' && pnpm --dir apps/api test",
+    "test:smoke": "bash scripts/smoke-order-bom.sh",
+    "setup:local": "pnpm db:up && pnpm db:deploy && pnpm db:seed",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --dir apps/api prisma:generate",
+    "db:migrate": "pnpm --dir apps/api prisma:migrate",
+    "db:deploy": "pnpm --dir apps/api prisma:deploy",
+    "db:seed": "pnpm --dir apps/api prisma:seed",
+    "db:studio": "pnpm --dir apps/api prisma:studio"
   },
   "dependencies": {
     "@hookform/resolvers": "5.4.0",
@@ -41,14 +54,7 @@
     "eslint-config-next": "15.5.20",
     "tailwindcss": "4.3.2",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
-  },
-  "pnpm": {
-    "allowBuilds": {
-      "sharp": true,
-      "unrs-resolver": true,
-      "@tailwindcss/oxide": true,
-      "esbuild": true
-    }
+    "vitest": "3.2.4",
+    "concurrently": "10.0.5"
   }
 }

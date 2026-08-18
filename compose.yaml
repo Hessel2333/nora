@@ -1,0 +1,21 @@
+name: nora-local
+
+services:
+  postgres:
+    image: postgres:16.13-alpine
+    environment:
+      POSTGRES_DB: nora
+      POSTGRES_USER: nora
+      POSTGRES_PASSWORD: nora
+    ports:
+      - "54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nora -d nora"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - nora_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  nora_postgres_data:

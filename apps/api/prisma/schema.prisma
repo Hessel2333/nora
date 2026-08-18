@@ -1,0 +1,307 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProductType {
+  raw
+  semi
+  processed
+  finished
+  combo
+}
+
+enum RecordStatus {
+  active
+  draft
+  inactive
+}
+
+enum SalesOrderStatus {
+  draft
+  pending
+  approved
+  in_production
+  delivering
+  completed
+  reconciled
+}
+
+enum SalesOrderSource {
+  customer
+  manual
+  ai_forecast
+  excel_import
+}
+
+enum OrderEventType {
+  created
+  submitted
+  approved
+  returned
+  status_changed
+}
+
+enum BomVersionStatus {
+  draft
+  effective
+  retired
+}
+
+enum ProductionDemandStatus {
+  pending_planning
+  partially_planned
+  planned
+  completed
+  cancelled
+}
+
+model Organization {
+  id                String             @id @default(uuid()) @db.Uuid
+  code              String             @unique @db.VarChar(32)
+  name              String             @db.VarChar(120)
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz(3)
+  customers         Customer[]
+  products          Product[]
+  salesOrders       SalesOrder[]
+  productionDemands ProductionDemand[]
+  boms              Bom[]
+  documentNumbers   DocumentNumber[]
+
+  @@map("organizations")
+}
+
+model Customer {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  code           String       @db.VarChar(32)
+  name           String       @db.VarChar(160)
+  type           String       @default("C类") @db.VarChar(16)
+  contact        String       @db.VarChar(80)
+  phone          String       @db.VarChar(40)
+  address        String       @db.VarChar(300)
+  settlement     String       @default("现结") @db.VarChar(80)
+  tags           String[]     @default([])
+  status         RecordStatus @default(active)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  salesOrders    SalesOrder[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, name])
+  @@map("customers")
+}
+
+model Product {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  code           String                 @db.VarChar(32)
+  name           String                 @db.VarChar(160)
+  type           ProductType
+  category       String                 @db.VarChar(80)
+  unit           String                 @db.VarChar(24)
+  cost           Decimal                @default(0) @db.Decimal(14, 4)
+  price          Decimal                @default(0) @db.Decimal(14, 2)
+  stock          Decimal                @default(0) @db.Decimal(14, 3)
+  safetyStock    Decimal                @default(0) @map("safety_stock") @db.Decimal(14, 3)
+  taxRate        Decimal                @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  tags           String[]               @default([])
+  status         RecordStatus           @default(active)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orderLines     SalesOrderLine[]
+  demandLines    ProductionDemandLine[]
+  boms           Bom[]                  @relation("BomOutputProduct")
+  bomItems       BomItem[]              @relation("BomComponentProduct")
+
+  @@unique([organizationId, code])
+  @@index([organizationId, name])
+  @@map("products")
+}
+
+model SalesOrder {
+  id               String            @id @default(uuid()) @db.Uuid
+  organizationId   String            @map("organization_id") @db.Uuid
+  organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  code             String            @db.VarChar(32)
+  customerId       String            @map("customer_id") @db.Uuid
+  customer         Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerName     String            @map("customer_name") @db.VarChar(160)
+  deliveryAt       DateTime          @map("delivery_at") @db.Timestamptz(3)
+  status           SalesOrderStatus  @default(draft)
+  source           SalesOrderSource  @default(manual)
+  contact          String            @db.VarChar(80)
+  phone            String            @db.VarChar(40)
+  address          String            @db.VarChar(300)
+  notes            String?           @db.VarChar(1000)
+  revision         Int               @default(1)
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lines            SalesOrderLine[]
+  events           SalesOrderEvent[]
+  productionDemand ProductionDemand?
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status, deliveryAt])
+  @@index([organizationId, customerId])
+  @@map("sales_orders")
+}
+
+model SalesOrderLine {
+  id                   String                @id @default(uuid()) @db.Uuid
+  salesOrderId         String                @map("sales_order_id") @db.Uuid
+  salesOrder           SalesOrder            @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  productId            String                @map("product_id") @db.Uuid
+  product              Product               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productCode          String                @map("product_code") @db.VarChar(32)
+  productName          String                @map("product_name") @db.VarChar(160)
+  quantity             Decimal               @db.Decimal(14, 3)
+  unit                 String                @db.VarChar(24)
+  unitPrice            Decimal               @map("unit_price") @db.Decimal(14, 2)
+  sortOrder            Int                   @default(0) @map("sort_order")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  productionDemandLine ProductionDemandLine?
+
+  @@unique([salesOrderId, productId])
+  @@index([salesOrderId, sortOrder])
+  @@map("sales_order_lines")
+}
+
+model SalesOrderEvent {
+  id           String         @id @default(uuid()) @db.Uuid
+  salesOrderId String         @map("sales_order_id") @db.Uuid
+  salesOrder   SalesOrder     @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  type         OrderEventType
+  label        String         @db.VarChar(80)
+  actor        String         @db.VarChar(80)
+  comment      String?        @db.VarChar(1000)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([salesOrderId, createdAt])
+  @@map("sales_order_events")
+}
+
+model ProductionDemand {
+  id             String                 @id @default(uuid()) @db.Uuid
+  organizationId String                 @map("organization_id") @db.Uuid
+  organization   Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  code           String                 @db.VarChar(32)
+  salesOrderId   String                 @unique @map("sales_order_id") @db.Uuid
+  salesOrder     SalesOrder             @relation(fields: [salesOrderId], references: [id], onDelete: Restrict)
+  factoryCode    String                 @default("SZ-CENTRAL") @map("factory_code") @db.VarChar(32)
+  factoryName    String                 @default("深圳中央工厂") @map("factory_name") @db.VarChar(120)
+  requiredAt     DateTime               @map("required_at") @db.Timestamptz(3)
+  status         ProductionDemandStatus @default(pending_planning)
+  approvedAt     DateTime               @map("approved_at") @db.Timestamptz(3)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  lines          ProductionDemandLine[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status, requiredAt])
+  @@map("production_demands")
+}
+
+model ProductionDemandLine {
+  id                   String           @id @default(uuid()) @db.Uuid
+  productionDemandId   String           @map("production_demand_id") @db.Uuid
+  productionDemand     ProductionDemand @relation(fields: [productionDemandId], references: [id], onDelete: Cascade)
+  salesOrderLineId     String           @unique @map("sales_order_line_id") @db.Uuid
+  salesOrderLine       SalesOrderLine   @relation(fields: [salesOrderLineId], references: [id], onDelete: Restrict)
+  productId            String           @map("product_id") @db.Uuid
+  product              Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productCode          String           @map("product_code") @db.VarChar(32)
+  productName          String           @map("product_name") @db.VarChar(160)
+  requiredQuantity     Decimal          @map("required_quantity") @db.Decimal(14, 3)
+  unit                 String           @db.VarChar(24)
+  selectedBomVersionId String?          @map("selected_bom_version_id") @db.Uuid
+  selectedBomVersion   BomVersion?      @relation(fields: [selectedBomVersionId], references: [id], onDelete: Restrict)
+  bomVersionSnapshot   String?          @map("bom_version_snapshot") @db.VarChar(24)
+  sortOrder            Int              @default(0) @map("sort_order")
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([productionDemandId, sortOrder])
+  @@index([productId])
+  @@map("production_demand_lines")
+}
+
+model Bom {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productId      String       @map("product_id") @db.Uuid
+  product        Product      @relation("BomOutputProduct", fields: [productId], references: [id], onDelete: Restrict)
+  code           String       @db.VarChar(40)
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  versions       BomVersion[]
+
+  @@unique([organizationId, productId])
+  @@unique([organizationId, code])
+  @@map("boms")
+}
+
+model BomVersion {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  bomId                 String                 @map("bom_id") @db.Uuid
+  bom                   Bom                    @relation(fields: [bomId], references: [id], onDelete: Cascade)
+  version               String                 @db.VarChar(24)
+  previousVersionId     String?                @map("previous_version_id") @db.Uuid
+  previousVersion       BomVersion?            @relation("BomVersionHistory", fields: [previousVersionId], references: [id], onDelete: SetNull)
+  nextVersions          BomVersion[]           @relation("BomVersionHistory")
+  outputQuantity        Decimal                @default(1) @map("output_quantity") @db.Decimal(14, 3)
+  outputUnit            String                 @map("output_unit") @db.VarChar(24)
+  status                BomVersionStatus       @default(draft)
+  effectiveAt           DateTime?              @map("effective_at") @db.Timestamptz(3)
+  publishedAt           DateTime?              @map("published_at") @db.Timestamptz(3)
+  revision              Int                    @default(1)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  items                 BomItem[]
+  productionDemandLines ProductionDemandLine[]
+
+  @@unique([bomId, version])
+  @@index([bomId, status, effectiveAt])
+  @@map("bom_versions")
+}
+
+model BomItem {
+  id                 String     @id @default(uuid()) @db.Uuid
+  bomVersionId       String     @map("bom_version_id") @db.Uuid
+  bomVersion         BomVersion @relation(fields: [bomVersionId], references: [id], onDelete: Cascade)
+  componentProductId String     @map("component_product_id") @db.Uuid
+  componentProduct   Product    @relation("BomComponentProduct", fields: [componentProductId], references: [id], onDelete: Restrict)
+  netQuantity        Decimal    @map("net_quantity") @db.Decimal(14, 6)
+  yieldRate          Decimal    @map("yield_rate") @db.Decimal(8, 6)
+  unit               String     @db.VarChar(24)
+  unitCostSnapshot   Decimal    @map("unit_cost_snapshot") @db.Decimal(14, 4)
+  sortOrder          Int        @default(0) @map("sort_order")
+  notes              String?    @db.VarChar(500)
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([bomVersionId, componentProductId])
+  @@index([bomVersionId, sortOrder])
+  @@map("bom_items")
+}
+
+model DocumentNumber {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @map("organization_id") @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           String       @db.VarChar(24)
+  dateKey        String       @map("date_key") @db.VarChar(8)
+  currentValue   Int          @default(0) @map("current_value")
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([organizationId, kind, dateKey])
+  @@map("document_numbers")
+}
