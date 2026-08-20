@@ -1,12 +1,13 @@
 import { ArrowDownRight } from "lucide-react";
 import { DataFlow } from "../components/data-flow";
+import { SHOWROOM_CUSTOMERS } from "../showroom-data";
 import styles from "../showroom.module.css";
 
 const incomingOrders = [
-  { store: "福田店", portions: 96 },
-  { store: "南山店", portions: 74 },
-  { store: "罗湖店", portions: 82 },
-  { store: "宝安店", portions: 98 },
+  { store: SHOWROOM_CUSTOMERS[0], portions: 96 },
+  { store: SHOWROOM_CUSTOMERS[1], portions: 74 },
+  { store: SHOWROOM_CUSTOMERS[2], portions: 82 },
+  { store: SHOWROOM_CUSTOMERS[3], portions: 98 },
 ];
 
 export function IntroScene({ progress, started, autoplay }: { progress: number; started: boolean; autoplay: boolean }) {

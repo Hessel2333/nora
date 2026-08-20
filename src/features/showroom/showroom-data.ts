@@ -15,7 +15,15 @@ import {
 const kungPaoProduct = products.find((product) => product.id === "p-001");
 const [baseChicken, baseSauce, baseVegetables, basePeanuts] = RECIPE_LAYERS;
 
-export const SHOWROOM_CUSTOMER = "华润万家深圳福田店";
+export const SHOWROOM_CUSTOMERS = [
+  "宁波甬鲜团餐有限公司",
+  "宁波港城餐饮有限公司",
+  "宁波嘉膳餐饮有限公司",
+  "宁波和膳团餐有限公司",
+  "宁波甬味供应链有限公司",
+] as const;
+
+export const SHOWROOM_CUSTOMER = SHOWROOM_CUSTOMERS[0];
 
 export const SHOWROOM_ORDER = {
   code: "202608130038",
@@ -65,7 +73,7 @@ const SHOWROOM_RECIPE_LAYERS: RecipeLayer[] = [
   {
     ...baseVegetables,
     id: "cucumber-dice",
-    name: "蔬菜丁（黄瓜丁）",
+    name: "黄瓜丁",
     code: "SF02021-C",
     quantity: 30,
     ratio: 10,
@@ -92,7 +100,7 @@ const SHOWROOM_RECIPE_LAYERS: RecipeLayer[] = [
   {
     ...baseVegetables,
     id: "scallion-garnish",
-    name: "葱花（可选）",
+    name: "葱花",
     code: "SF02021-S",
     quantity: 10,
     ratio: 3.3,
@@ -191,7 +199,7 @@ export const BOM_PROCESS_ROUTES: Record<string, {
       { id: "receive", label: "验收", detail: "10.6 g", outputWeight: 10.6 },
       { id: "wash", label: "清洗", detail: "流动水 2 min", outputWeight: 10.3 },
       { id: "cut", label: "切葱花", detail: "3–5 mm", outputWeight: 10, tone: "specification" },
-      { id: "weigh", label: "可选投料", detail: "净料 10 g", outputWeight: 10 },
+      { id: "weigh", label: "称量", detail: "净料 10 g", outputWeight: 10 },
     ],
   },
   "peanut-pack": {
@@ -232,11 +240,11 @@ export const SHOWROOM_MRP = {
 
 export const FORECAST_SCENARIO = {
   stores: [
-    { id: "customer-huarun", name: SHOWROOM_CUSTOMER, portions: 684, change: 12.4, x: 15, y: 16 },
-    { id: "beilun", name: "北仑店", portions: 572, change: 8.7, x: 5, y: 39 },
-    { id: "yinzhou", name: "鄞州店", portions: 821, change: 21.2, x: 21, y: 61 },
-    { id: "haishu", name: "海曙店", portions: 696, change: 6.1, x: 8, y: 82 },
-    { id: "jiangbei", name: "江北店", portions: 591, change: -2.8, x: 29, y: 92 },
+    { id: "customer-yongxian", name: SHOWROOM_CUSTOMERS[0], portions: 684, change: 12.4, x: 15, y: 16 },
+    { id: "customer-gangcheng", name: SHOWROOM_CUSTOMERS[1], portions: 572, change: 8.7, x: 5, y: 39 },
+    { id: "customer-jiashan", name: SHOWROOM_CUSTOMERS[2], portions: 821, change: 21.2, x: 21, y: 61 },
+    { id: "customer-heshan", name: SHOWROOM_CUSTOMERS[3], portions: 696, change: 6.1, x: 8, y: 82 },
+    { id: "customer-yongwei", name: SHOWROOM_CUSTOMERS[4], portions: 591, change: -2.8, x: 29, y: 92 },
   ],
   dishes: [
     { name: "宫保鸡丁净菜包", portions: 1_286, change: 18.6 },

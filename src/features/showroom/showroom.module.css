@@ -1883,22 +1883,21 @@
   top: 45%;
   left: 11%;
   width: min(26vw, 490px);
-  height: 48%;
+  aspect-ratio: 1.05;
   transform: translateY(-50%);
   transition: opacity 600ms ease, transform 1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .bomProductImage {
   position: absolute;
-  top: 50%;
+  top: 0;
   left: 0;
   width: 100%;
   aspect-ratio: 1.35;
-  transform: translateY(-50%);
   transition: opacity 260ms ease;
 }
 .bomProductImage > img { object-fit: contain; filter: drop-shadow(0 30px 35px rgba(0, 0, 0, 0.44)); }
-.bomProduct > div { position: absolute; bottom: -5%; left: 50%; display: flex; transform: translateX(-50%); flex-direction: column; text-align: center; white-space: nowrap; transition: opacity 360ms ease 120ms; }
+.bomProduct > div { position: absolute; top: 81%; left: 50%; display: flex; transform: translateX(-50%); flex-direction: column; text-align: center; white-space: nowrap; transition: opacity 360ms ease 120ms; }
 .bomProduct > div small { color: #9aabba; font-size: var(--showroom-label); }
 .bomProduct > div strong { margin-top: 0.2rem; font-size: var(--showroom-scene-h2); font-weight: 600; }
 .bomProductShifted { transform: translate3d(-2vw, 0, 0) translateY(-50%) scale(0.9); }
