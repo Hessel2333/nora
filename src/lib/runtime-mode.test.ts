@@ -7,8 +7,8 @@ import {
 } from "./runtime-mode";
 
 describe("frontend runtime mode", () => {
-  it("defaults to development and never silently enables demo mode", () => {
-    expect(getNoraRuntimeMode(undefined)).toBe("development");
+  it("falls back to development and never silently enables demo mode", () => {
+    expect(getNoraRuntimeMode("unexpected")).toBe("development");
   });
 
   it("allows local writes only in explicit demo mode", () => {
