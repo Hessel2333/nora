@@ -70,7 +70,7 @@ export class UpdateOrderDto extends CreateOrderDto {
 }
 
 export class OrderActionDto {
-  @ApiPropertyOptional({ default: "演示用户" })
+  @ApiPropertyOptional({ description: "仅用于 demo/development；production 不信任客户端操作者字段" })
   @IsOptional()
   @IsString()
   @Length(1, 80)

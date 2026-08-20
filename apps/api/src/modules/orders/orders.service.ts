@@ -2,8 +2,10 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import type { Prisma } from "../../generated/prisma/client.js";
 import type { OrderEventType, SalesOrderSource, SalesOrderStatus } from "../../generated/prisma/enums.js";
 import { DEFAULT_ORGANIZATION_ID } from "../../common/organization.js";
+import { resolveAuditActor } from "../../common/runtime-mode.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { BomsService } from "../boms/boms.service.js";
+import { isCompleteRecipeSnapshot } from "../boms/recipe-snapshot.js";
 import type { CreateOrderDto, ListOrdersQueryDto, OrderActionDto, UpdateOrderDto } from "./dto/order.dto.js";
 import { canTransitionOrder } from "./order-policy.js";
 import { orderInclude, presentOrder } from "./orders.presenter.js";
@@ -59,6 +61,7 @@ export class OrdersService {
 
   async create(input: CreateOrderDto) {
     this.assertUniqueProducts(input.lines.map((line) => line.productId));
+    const actor = resolveAuditActor();
     const order = await this.prisma.$transaction(async (tx) => {
       const customer = await tx.customer.findFirst({
         where: { id: input.customerId, organizationId: DEFAULT_ORGANIZATION_ID, status: "active" },
@@ -99,9 +102,9 @@ export class OrdersService {
           },
           events: {
             create: [
-              { type: "created", label: "创建订单", actor: "演示用户" },
+              { type: "created", label: "创建订单", actor },
               ...(input.status === "pending"
-                ? [{ type: "submitted" as const, label: "提交审核", actor: "演示用户" }]
+                ? [{ type: "submitted" as const, label: "提交审核", actor }]
                 : []),
             ],
           },
@@ -113,12 +116,18 @@ export class OrdersService {
   }
 
   async approve(id: string, input: OrderActionDto) {
+    const actor = resolveAuditActor(input.actor);
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.salesOrder.findFirst({
         where: { id, organizationId: DEFAULT_ORGANIZATION_ID },
         include: { lines: { orderBy: { sortOrder: "asc" } } },
       });
       if (!existing) throw new NotFoundException("订单不存在");
+      if (existing.status === "approved") {
+        const demand = await tx.productionDemand.findUnique({ where: { salesOrderId: id } });
+        if (!demand) throw new ConflictException("订单已审核但生产需求缺失，请先修复数据一致性");
+        return tx.salesOrder.findUniqueOrThrow({ where: { id }, include: orderInclude });
+      }
       if (!canTransitionOrder(existing.status, "approved")) {
         throw new ConflictException(`订单不能从 ${existing.status} 变更为 approved`);
       }
@@ -135,7 +144,7 @@ export class OrdersService {
           salesOrderId: id,
           type: "approved",
           label: "审核通过并创建生产需求",
-          actor: input.actor ?? "演示用户",
+          actor,
           comment: input.comment || null,
         },
       });
@@ -163,6 +172,7 @@ export class OrdersService {
 
   async update(id: string, input: UpdateOrderDto) {
     this.assertUniqueProducts(input.lines.map((line) => line.productId));
+    const actor = resolveAuditActor();
     const order = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.salesOrder.findFirst({ where: { id, organizationId: DEFAULT_ORGANIZATION_ID } });
       if (!existing) throw new NotFoundException("订单不存在");
@@ -210,7 +220,7 @@ export class OrdersService {
           salesOrderId: id,
           type: input.status === "pending" ? "submitted" : "status_changed",
           label: input.status === "pending" ? "修改并重新提交" : "更新草稿",
-          actor: "演示用户",
+          actor,
         },
       });
       return tx.salesOrder.findUniqueOrThrow({ where: { id }, include: orderInclude });
@@ -225,6 +235,7 @@ export class OrdersService {
     label: string,
     input: OrderActionDto,
   ) {
+    const actor = resolveAuditActor(input.actor);
     const result = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.salesOrder.findFirst({ where: { id, organizationId: DEFAULT_ORGANIZATION_ID } });
       if (!existing) throw new NotFoundException("订单不存在");
@@ -241,7 +252,7 @@ export class OrdersService {
           salesOrderId: id,
           type: eventType,
           label,
-          actor: input.actor ?? "演示用户",
+          actor,
           comment: input.comment || null,
         },
       });
@@ -255,12 +266,44 @@ export class OrdersService {
     if (!["approved", "in_production", "delivering", "completed", "reconciled"].includes(order.status)) {
       throw new ConflictException("订单审核通过后才能展开物料需求");
     }
-    return this.boms.explodeOrder(order);
+    const demand = await this.prisma.productionDemand.findFirst({
+      where: { salesOrderId: id, organizationId: DEFAULT_ORGANIZATION_ID },
+      include: { lines: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!demand) throw new ConflictException("订单缺少已持久化的生产需求，不能安全展开物料");
+    const invalidLine = demand.lines.find((line) => !isCompleteRecipeSnapshot(line.recipeSnapshot));
+    if (invalidLine) {
+      throw new ConflictException(
+        `生产需求 ${demand.code} 缺少完整审批配方快照，已阻止按当前主数据重算；请迁移或重建该需求`,
+      );
+    }
+    return this.boms.explodeSnapshots({
+      orderId: order.id,
+      orderCode: order.code,
+      deliveryAt: order.deliveryAt,
+      lines: demand.lines.map((line) => {
+        if (!isCompleteRecipeSnapshot(line.recipeSnapshot)) {
+          throw new ConflictException("生产需求配方快照格式无效");
+        }
+        return {
+          productName: line.productName,
+          requiredQuantity: Number(line.requiredQuantity),
+          snapshot: line.recipeSnapshot,
+        };
+      }),
+    });
   }
 
   async productionReadiness(id: string) {
     const order = await this.findOrder(id);
-    const lines = await this.prisma.$transaction((tx) => this.resolveDemandLines(tx, order));
+    const demand = await this.prisma.productionDemand.findFirst({
+      where: { salesOrderId: id, organizationId: DEFAULT_ORGANIZATION_ID },
+      include: { lines: { orderBy: { sortOrder: "asc" } } },
+    });
+    if (!demand && ["approved", "in_production", "delivering", "completed", "reconciled"].includes(order.status)) {
+      throw new ConflictException("已审核订单缺少持久化生产需求，不能使用当前主数据推断生产就绪状态");
+    }
+    const lines = demand?.lines ?? await this.prisma.$transaction((tx) => this.resolveDemandLines(tx, order));
     const presentedLines = lines.map((line) => ({
       salesOrderLineId: line.salesOrderLineId,
       productId: line.productId,
@@ -268,7 +311,7 @@ export class OrdersService {
       productName: line.productName,
       requiredQuantity: Number(line.requiredQuantity),
       unit: line.unit,
-      bomReady: Boolean(line.selectedBomVersionId),
+      bomReady: Boolean(line.selectedBomVersionId) && (!demand || isCompleteRecipeSnapshot(line.recipeSnapshot)),
       selectedBomVersionId: line.selectedBomVersionId ?? undefined,
       selectedBomVersion: line.bomVersionSnapshot ?? undefined,
     }));
@@ -310,39 +353,24 @@ export class OrdersService {
     tx: TransactionClient,
     order: Pick<OrderRecordForDemand, "deliveryAt" | "lines">,
   ) {
-    const boms = await tx.bom.findMany({
-      where: {
-        organizationId: DEFAULT_ORGANIZATION_ID,
-        productId: { in: order.lines.map((line) => line.productId) },
-      },
-      select: {
-        productId: true,
-        versions: {
-          where: { status: "effective", effectiveAt: { lte: order.deliveryAt } },
-          orderBy: { effectiveAt: "desc" },
-          take: 1,
-          select: { id: true, version: true },
-        },
-      },
-    });
-    const versionByProductId = new Map(
-      boms.map((bom) => [bom.productId, bom.versions[0]]),
-    );
-
-    return order.lines.map((line, index) => {
-      const selectedVersion = versionByProductId.get(line.productId);
-      return {
+    const capturedAt = new Date();
+    const demandLines: Prisma.ProductionDemandLineUncheckedCreateWithoutProductionDemandInput[] = [];
+    for (const [index, line] of order.lines.entries()) {
+      const snapshot = await this.boms.captureRecipeSnapshot(tx, line.productId, order.deliveryAt, [], capturedAt);
+      demandLines.push({
         salesOrderLineId: line.id,
         productId: line.productId,
         productCode: line.productCode,
         productName: line.productName,
         requiredQuantity: line.quantity,
         unit: line.unit,
-        selectedBomVersionId: selectedVersion?.id,
-        bomVersionSnapshot: selectedVersion?.version,
+        selectedBomVersionId: snapshot.bomVersion?.id,
+        bomVersionSnapshot: snapshot.bomVersion?.version,
+        recipeSnapshot: snapshot as unknown as Prisma.InputJsonValue,
         sortOrder: index,
-      };
-    });
+      });
+    }
+    return demandLines;
   }
 
   private async nextOrderCode(tx: TransactionClient) {
