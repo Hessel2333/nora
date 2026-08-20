@@ -119,7 +119,7 @@ function inventoryProfile(room: FactoryRoomSnapshot): RoomOperationsProfile {
     },
     events: [
       { time: "08:20", title: "包材入库", detail: "餐盒与封口膜共 8,000 套", status: "completed" },
-      { time: "10:05", title: "午间备料出库", detail: `${room.task?.code ?? "PD20260714-013"} · 已出库 2,760 套`, status: "active" },
+      { time: "10:05", title: "午间备料出库", detail: `${room.task?.code ?? "DEMO-PD-013"} · 已出库 2,760 套`, status: "active" },
       { time: "11:30", title: "下一次补货", detail: "供应商车辆预计 11:30 到厂", status: "waiting" },
     ],
   };
@@ -138,7 +138,7 @@ function fulfillmentProfile(room: FactoryRoomSnapshot): RoomOperationsProfile {
     ],
     chart: progressChart(progress, true),
     events: [
-      { time: "09:10", title: "订单进入缓冲区", detail: `${room.task?.code ?? "SO202607140048"} · 批次核对完成`, status: "completed" },
+      { time: "09:10", title: "订单进入缓冲区", detail: `${room.task?.code ?? "DEMO-SO-0048"} · 批次核对完成`, status: "completed" },
       { time: "现在", title: "出库复核进行中", detail: `齐套 ${progress}%，等待最后 600 份到位`, status: "active" },
       { time: "11:00", title: "计划装车发运", detail: "车辆粤B·6K28 已登记", status: "waiting" },
     ],

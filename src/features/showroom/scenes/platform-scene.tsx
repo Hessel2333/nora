@@ -20,7 +20,7 @@ export function PlatformScene({ progress }: { progress: number }) {
         </div>
         {PLATFORM_NODES.map((node, index) => (
           <div key={node} className={`${styles.platformNode} ${styles[`platformNode${index + 1}`]} ${progress > 0.14 + index * 0.055 ? styles.isVisible : ""}`}>
-            <span>{String(index + 1).padStart(2, "0")}</span><strong>{node}</strong><small>在线运行</small>
+            <span>{String(index + 1).padStart(2, "0")}</span><strong>{node}</strong><small>演示节点</small>
           </div>
         ))}
       </div>

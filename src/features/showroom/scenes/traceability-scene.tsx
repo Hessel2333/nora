@@ -14,7 +14,7 @@ export function TraceabilityScene({ progress, onInteract }: { progress: number; 
 
   return (
     <section className={`${styles.scene} ${styles.traceabilityScene}`}>
-      <SceneTitle eyebrow="06 · TRACEABILITY" title="每一份净配菜，都能追溯到它来自哪里" description="从成品批次回溯原料、人员、工序和冷链记录。" />
+      <SceneTitle eyebrow="08 · TRACEABILITY" title="每一份净配菜，都能追溯到它来自哪里" description="从成品批次回溯原料、人员、工序和冷链记录。" />
 
       <div className={styles.traceCanvas} data-recall={recallActive} style={{ "--trace-progress": traceProgress } as CSSProperties}>
         <svg className={styles.traceConnections} viewBox="0 0 1200 560" aria-hidden="true">
@@ -31,11 +31,11 @@ export function TraceabilityScene({ progress, onInteract }: { progress: number; 
         </svg>
 
         <div className={styles.tracePack}>
-          <div><Image src={SHOWROOM_BOM.finished.image} alt="宫保鸡丁成品包装批次" fill sizes="300px" /></div>
+          <div><Image src={SHOWROOM_BOM.finished.image} alt="宫保鸡丁净菜包批次" fill sizes="300px" /></div>
           <span><ScanLine size={22} /></span>
           <small>成品批次</small>
           <strong>{TRACEABILITY_SCENARIO.finished.code}</strong>
-          <p>{TRACEABILITY_SCENARIO.finished.label} · 500 g</p>
+          <p>{TRACEABILITY_SCENARIO.finished.label} · {SHOWROOM_BOM.finished.quantity} g</p>
         </div>
 
         <div className={styles.traceChain}>

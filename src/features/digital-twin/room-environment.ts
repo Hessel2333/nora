@@ -42,7 +42,15 @@ interface EnvironmentPreset {
 }
 
 const HOURLY_LABELS = ["00:00", "02:00", "04:00", "06:00", "08:00", "10:00", "12:00", "14:00", "16:00", "18:00", "20:00", "现在"];
-const DAILY_LABELS = ["7月8日", "7月9日", "7月10日", "7月11日", "7月12日", "7月13日", "今天"];
+
+function relativeDayLabel(offsetDays: number) {
+  if (offsetDays === 0) return "今天";
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  return new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", timeZone: "Asia/Shanghai" }).format(date);
+}
+
+const DAILY_LABELS = [-6, -5, -4, -3, -2, -1, 0].map(relativeDayLabel);
 
 const DEFAULT_TEMPERATURE_OFFSETS = [-0.5, -0.4, -0.4, -0.2, 0, 0.3, 0.5, 0.4, 0.2, 0.1, -0.1, 0];
 const DEFAULT_HUMIDITY_OFFSETS = [-2, -1, -1, 0, 1, 2, 3, 2, 1, 0, -1, 0];
@@ -59,7 +67,7 @@ const PRESETS: Record<string, EnvironmentPreset> = {
     weeklyHumidityOffsets: [-2, 0, 1, -1, 2, 1, 0],
     sensorName: "TH-R11-01",
     anomalies: [
-      { id: "EA-R11-01", startedAt: "7月11日 14:20", endedAt: "14:45", metric: "humidity", level: "warning", reading: "67%RH", threshold: "上限 65%RH", status: "resolved", note: "开门补货后湿度短时升高，已自动恢复" },
+      { id: "EA-R11-01", startedAt: `${relativeDayLabel(-3)} 14:20`, endedAt: "14:45", metric: "humidity", level: "warning", reading: "67%RH", threshold: "上限 65%RH", status: "resolved", note: "开门补货后湿度短时升高，已自动恢复" },
     ],
   },
   R12: {
@@ -71,7 +79,7 @@ const PRESETS: Record<string, EnvironmentPreset> = {
     weeklyHumidityOffsets: [-2, -1, 1, 0, 2, 1, 0],
     sensorName: "TH-R12-01",
     anomalies: [
-      { id: "EA-R12-01", startedAt: "7月10日 08:12", endedAt: "08:31", metric: "temperature", level: "warning", reading: "-15.4°C", threshold: "上限 -16°C", status: "resolved", note: "集中出库造成短时温升，库门关闭后恢复" },
+      { id: "EA-R12-01", startedAt: `${relativeDayLabel(-4)} 08:12`, endedAt: "08:31", metric: "temperature", level: "warning", reading: "-15.4°C", threshold: "上限 -16°C", status: "resolved", note: "集中出库造成短时温升，库门关闭后恢复" },
     ],
   },
   R13: {
@@ -94,8 +102,8 @@ const PRESETS: Record<string, EnvironmentPreset> = {
     sensorName: "TH-R14-02",
     anomalies: [
       { id: "EA-R14-03", startedAt: "今天 09:35", metric: "temperature", level: "warning", reading: "4.8°C", threshold: "上限 4°C", status: "active", note: "温度持续高于上限，待检查库门与制冷机组" },
-      { id: "EA-R14-02", startedAt: "7月12日 16:42", endedAt: "17:05", metric: "temperature", level: "warning", reading: "4.5°C", threshold: "上限 4°C", status: "resolved", note: "补货期间库门开启，关闭后恢复" },
-      { id: "EA-R14-01", startedAt: "7月9日 06:18", endedAt: "06:32", metric: "humidity", level: "warning", reading: "68%RH", threshold: "上限 65%RH", status: "resolved", note: "除霜结束后湿度短时升高" },
+      { id: "EA-R14-02", startedAt: `${relativeDayLabel(-2)} 16:42`, endedAt: "17:05", metric: "temperature", level: "warning", reading: "4.5°C", threshold: "上限 4°C", status: "resolved", note: "补货期间库门开启，关闭后恢复" },
+      { id: "EA-R14-01", startedAt: `${relativeDayLabel(-5)} 06:18`, endedAt: "06:32", metric: "humidity", level: "warning", reading: "68%RH", threshold: "上限 65%RH", status: "resolved", note: "除霜结束后湿度短时升高" },
     ],
   },
 };

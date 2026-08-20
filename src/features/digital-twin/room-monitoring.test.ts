@@ -24,7 +24,7 @@ describe("factory room monitoring", () => {
       mapMetric: "进行中 72%",
     });
     expect(room?.task).toMatchObject({
-      code: "RW20260714-002",
+      code: "DEMO-WO-002",
       workOrderId: "wo-002",
       progress: 72,
     });

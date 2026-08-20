@@ -4,9 +4,10 @@ export type ShowroomSceneId =
   | "order"
   | "bom"
   | "mrp"
+  | "procurement"
+  | "scheduling"
   | "production"
   | "traceability"
-  | "procurement"
   | "business"
   | "platform";
 

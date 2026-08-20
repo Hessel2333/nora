@@ -9,10 +9,12 @@ import { SceneTitle } from "../components/scene-title";
 import styles from "../showroom.module.css";
 
 const ROUTE_PHASES = [
-  { layerId: "marinated-chicken", start: 0.38, end: 0.66 },
-  { layerId: "kung-pao-sauce", start: 0.66, end: 0.77 },
-  { layerId: "diced-vegetables", start: 0.77, end: 0.88 },
-  { layerId: "roasted-peanuts", start: 0.88, end: 0.98 },
+  { layerId: "marinated-chicken", start: 0.38, end: 0.62 },
+  { layerId: "kung-pao-sauce", start: 0.62, end: 0.70 },
+  { layerId: "cucumber-dice", start: 0.70, end: 0.78 },
+  { layerId: "chili-segments", start: 0.78, end: 0.85 },
+  { layerId: "scallion-garnish", start: 0.85, end: 0.92 },
+  { layerId: "peanut-pack", start: 0.92, end: 0.98 },
 ] as const;
 
 function getRoutePhase(progress: number) {
@@ -59,14 +61,16 @@ export function BomScene({ progress, autoAdvance, onInteract }: { progress: numb
             <span className={styles.dishHalo} />
             <Image src={SHOWROOM_BOM.finished.image} alt={`${SHOWROOM_BOM.finished.name}成品`} fill priority sizes="(max-width: 2200px) 420px, 760px" />
           </span>
-          <div><small>标准成品 · 500 g</small><strong>{SHOWROOM_BOM.finished.name}</strong></div>
+          <div><small>标准成品 · {SHOWROOM_BOM.finished.quantity} g</small><strong>{SHOWROOM_BOM.finished.name}</strong></div>
         </div>
 
         <svg className={`${styles.bomConnections} ${showLayers ? styles.isVisible : ""}`} viewBox="0 0 760 520" aria-hidden="true">
-          <path d="M225 250 C310 250 330 68 470 68" />
-          <path d="M225 250 C330 250 350 190 540 190" />
-          <path d="M225 250 C330 250 350 326 540 326" />
-          <path d="M225 250 C310 250 330 450 470 450" />
+          <path d="M225 250 C310 250 330 36 470 36" />
+          <path d="M225 250 C310 250 330 125 470 125" />
+          <path d="M225 250 C310 250 330 214 470 214" />
+          <path d="M225 250 C310 250 330 303 470 303" />
+          <path d="M225 250 C310 250 330 392 470 392" />
+          <path d="M225 250 C310 250 330 481 470 481" />
         </svg>
 
         <div className={`${styles.bomLayerNodes} ${showLayers ? styles.isVisible : ""}`}>
@@ -88,7 +92,7 @@ export function BomScene({ progress, autoAdvance, onInteract }: { progress: numb
 
         <div className={`${styles.processWorkbench} ${showProcess ? styles.isVisible : ""}`}>
           <header key={`route-header-${selectedLayer.id}`} className={styles.processPageEnter}>
-            <p>PROCESS ROUTING · {selectedLayer.code} · {String(selectedLayerIndex + 1).padStart(2, "0")} / 04</p>
+            <p>PROCESS ROUTING · {selectedLayer.code} · {String(selectedLayerIndex + 1).padStart(2, "0")} / {String(SHOWROOM_BOM.layers.length).padStart(2, "0")}</p>
             <h2>{route.sourceLabel} → {selectedLayer.name}</h2>
             <span>{selectedLayer.station}</span>
           </header>

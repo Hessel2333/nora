@@ -7,7 +7,7 @@ import { BUSINESS_SCENARIO } from "../showroom-data";
 import { SceneTitle } from "../components/scene-title";
 import styles from "../showroom.module.css";
 
-const bridgeValues = [30.4, 29.6, 29.0, 28.7, 27.8, 28.1];
+const bridgeValues = [20.7, 19.9, 19.3, 19.0, 18.1, 18.4];
 const BRIDGE_WIDTH = 1120;
 const BRIDGE_HEIGHT = 330;
 const BRIDGE_POINTS = [
@@ -48,7 +48,7 @@ export function BusinessScene({ progress, onInteract }: { progress: number; onIn
 
   return (
     <section className={`${styles.scene} ${styles.businessScene}`}>
-      <SceneTitle eyebrow="08 · MARGIN BRIDGE" title="毛利率，是如何一步一步变化的？" description="从采购、出成、工时、促销到配送，把今天的利润变化追到业务现场。" />
+      <SceneTitle eyebrow="09 · MARGIN BRIDGE" title="毛利率，是如何一步一步变化的？" description="从采购、出成、工时、促销到配送，把今天的利润变化追到业务现场。" />
 
       <div className={styles.marginCanvas}>
         <div className={styles.marginHeadline}>

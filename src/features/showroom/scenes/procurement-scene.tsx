@@ -19,7 +19,7 @@ export function ProcurementScene({ progress, onInteract }: { progress: number; o
 
   return (
     <section className={`${styles.scene} ${styles.procurementScene}`}>
-      <SceneTitle eyebrow="07 · PROCUREMENT DECISION" title="为什么 Nora 没有选择最低报价？" description="采购价只有一半答案；质量、履约和实际出成率共同决定真正的净料成本。" />
+      <SceneTitle eyebrow="05 · PROCUREMENT DECISION" title="为什么 Nora 没有选择最低报价？" description="采购价只有一半答案；质量、履约和实际出成率共同决定真正的净料成本。" />
 
       <div className={styles.procurementCanvas}>
         <div className={styles.procurementNeed}>
