@@ -17,6 +17,7 @@ const productionReadRoutes = new Set([
   "/catalog/boms",
   "/production/plans",
   "/production/work-orders",
+  "/inventory/stock",
 ]);
 
 const developmentWriteRoutes = new Set(["/orders/new", "/orders/approvals"]);

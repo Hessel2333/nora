@@ -9,6 +9,7 @@ import type {
   ButtonHTMLAttributes,
   ComponentProps,
   HTMLAttributes,
+  RefObject,
   ReactNode,
 } from "react";
 import { cn } from "@/lib/utils";
@@ -51,22 +52,12 @@ export function buttonClassName({
   );
 }
 
-export function Button({
-  className,
-  variant = "primary",
-  size = "md",
-  ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
-}) {
-  return (
-    <button
-      className={buttonClassName({ variant, size, className })}
-      {...props}
-    />
-  );
-}
+}>(function Button({ className, variant = "primary", size = "md", ...props }, ref) {
+  return <button ref={ref} className={buttonClassName({ variant, size, className })} {...props} />;
+});
 
 export function ButtonLink({
   className,
@@ -362,6 +353,7 @@ export function Modal({
   children,
   footer,
   size = "md",
+  returnFocusRef,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -370,15 +362,23 @@ export function Modal({
   children: ReactNode;
   footer?: ReactNode;
   size?: "md" | "xl";
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[var(--overlay)] backdrop-blur-[2px]" />
-        <Dialog.Content className={cn(
-          "fixed left-1/2 top-1/2 z-50 max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-auto overscroll-contain rounded-[var(--radius-card)] bg-[var(--surface)] shadow-[var(--shadow-raised)] outline-none ring-1 ring-black/8",
-          size === "xl" ? "w-[min(96vw,1040px)]" : "w-[min(92vw,560px)]",
-        )}>
+        <Dialog.Content
+          onCloseAutoFocus={(event) => {
+            if (!returnFocusRef?.current) return;
+            event.preventDefault();
+            returnFocusRef.current.focus();
+          }}
+          className={cn(
+            "fixed left-1/2 top-1/2 z-50 max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-auto overscroll-contain rounded-[var(--radius-card)] bg-[var(--surface)] shadow-[var(--shadow-raised)] outline-none ring-1 ring-black/8",
+            size === "xl" ? "w-[min(96vw,1040px)]" : "w-[min(92vw,560px)]",
+          )}
+        >
           <div className="flex items-start justify-between border-b border-[var(--stroke-subtle)] px-5 py-4">
             <div>
               <Dialog.Title className="text-lg font-semibold text-[var(--text-primary)]">

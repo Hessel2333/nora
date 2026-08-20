@@ -1,14 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, ClipboardList, Play, RefreshCw, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  Play,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
-import { Badge, Button, Card, PageHeader, Progress, inputClass } from "@/components/ui";
-import { noraApi } from "@/lib/nora-api";
+import { Badge, Button, Card, Field, Modal, PageHeader, Progress, inputClass } from "@/components/ui";
+import { NoraApiError, noraApi } from "@/lib/nora-api";
 import { useNoraStore } from "@/lib/store";
-import type { ProductionWorkOrder, StatusTone, WorkOrder } from "@/lib/types";
+import type {
+  ProductionWorkOrder,
+  ProductionWorkOrderCommand,
+  StatusTone,
+  WorkOrder,
+} from "@/lib/types";
 import { formatNumber, workOrderStatus } from "@/lib/utils";
+import {
+  workOrderActions,
+  workOrderCommandSuccessLabel,
+  type WorkOrderAction,
+} from "./work-order-actions";
 
 const productionWorkOrderStatus: Record<ProductionWorkOrder["status"], { label: string; tone: StatusTone }> = {
   pending: { label: "待开工", tone: "purple" },
@@ -18,6 +36,16 @@ const productionWorkOrderStatus: Record<ProductionWorkOrder["status"], { label: 
   exception: { label: "异常", tone: "danger" },
   cancelled: { label: "已取消", tone: "neutral" },
 };
+
+interface CommandDraft {
+  workOrder: ProductionWorkOrder;
+  action: WorkOrderAction;
+}
+
+interface ActionFeedback {
+  tone: "success" | "error";
+  message: string;
+}
 
 export function WorkOrdersPage() {
   const mode = useNoraStore((state) => state.mode);
@@ -30,6 +58,12 @@ export function WorkOrdersPage() {
   const [loading, setLoading] = useState(mode !== "demo");
   const [error, setError] = useState("");
   const [requestVersion, setRequestVersion] = useState(0);
+  const [actionId, setActionId] = useState("");
+  const [feedback, setFeedback] = useState<ActionFeedback | null>(null);
+  const [commandDraft, setCommandDraft] = useState<CommandDraft | null>(null);
+  const [reason, setReason] = useState("");
+  const [reasonError, setReasonError] = useState("");
+  const commandKeys = useRef(new Map<string, string>());
 
   useEffect(() => {
     if (mode === "demo") {
@@ -50,8 +84,8 @@ export function WorkOrdersPage() {
       .then((result) => {
         if (active) setApiWorkOrders(result.data);
       })
-      .catch((reason) => {
-        if (active) setError(reason instanceof Error ? reason.message : "生产工单加载失败，请稍后重试。");
+      .catch((reasonValue) => {
+        if (active) setError(reasonValue instanceof Error ? reasonValue.message : "生产工单加载失败，请稍后重试。");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -68,6 +102,65 @@ export function WorkOrdersPage() {
     `${workOrder.code}${workOrder.productName}${workOrder.owner}${workOrder.line}`.includes(query.trim())
   )), [demoWorkOrders, query]);
 
+  const runCommand = async (
+    workOrder: ProductionWorkOrder,
+    command: ProductionWorkOrderCommand,
+    commandReason?: string,
+  ) => {
+    if (mode === "production") return;
+    const operationId = `${workOrder.id}:${workOrder.revision}:${command}`;
+    const idempotencyKey = commandKeys.current.get(operationId) ?? `work-order:${crypto.randomUUID()}`;
+    commandKeys.current.set(operationId, idempotencyKey);
+    setActionId(operationId);
+    setFeedback(null);
+    try {
+      const updated = await noraApi.transitionWorkOrder(workOrder.id, command, {
+        revision: workOrder.revision,
+        workstationCode: workOrder.workCenter,
+        deviceId: "WEB-DEVELOPMENT",
+        reason: commandReason,
+      }, idempotencyKey);
+      setApiWorkOrders((rows) => rows.map((row) => row.id === updated.id ? updated : row));
+      commandKeys.current.delete(operationId);
+      setCommandDraft(null);
+      setReason("");
+      setReasonError("");
+      setFeedback({ tone: "success", message: `${updated.code}：${workOrderCommandSuccessLabel(command)}` });
+    } catch (cause) {
+      if (cause instanceof NoraApiError && cause.status === 409) {
+        setFeedback({ tone: "error", message: `${cause.message}；已重新加载最新工单。` });
+        setRequestVersion((version) => version + 1);
+      } else {
+        setFeedback({
+          tone: "error",
+          message: cause instanceof Error ? cause.message : "工单操作失败，请保留当前页面后重试。",
+        });
+      }
+    } finally {
+      setActionId("");
+    }
+  };
+
+  const requestAction = (workOrder: ProductionWorkOrder, action: WorkOrderAction) => {
+    if (action.requiresReason) {
+      setReason("");
+      setReasonError("");
+      setCommandDraft({ workOrder, action });
+      return;
+    }
+    void runCommand(workOrder, action.command);
+  };
+
+  const submitReasonCommand = () => {
+    const normalized = reason.trim();
+    if (!normalized) {
+      setReasonError("请填写原因或处置说明");
+      return;
+    }
+    if (!commandDraft) return;
+    void runCommand(commandDraft.workOrder, commandDraft.action.command, normalized);
+  };
+
   return (
     <>
       <PageHeader
@@ -76,10 +169,27 @@ export function WorkOrdersPage() {
           <HelpTip title="工单说明">
             {mode === "demo"
               ? "当前为演示工单，可体验开工、暂停和完工交互。"
-              : "工单由已确认生产批次释放，并保留当时冻结的配方与工序依据。"}
+              : "工单由已确认生产批次释放；现场命令会同步更新生产批次并写入审计记录。"}
           </HelpTip>
         )}
       />
+
+      {mode === "production" ? (
+        <Card className="mb-4 border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-sm" role="note">
+          <b>当前仅可查看。</b>
+          <span className="ml-1 text-[var(--text-secondary)]">生产身份与工位权限接入后，才能开始、暂停或上报异常。</span>
+        </Card>
+      ) : null}
+
+      {feedback ? (
+        <div
+          className={`mb-4 flex items-start gap-2 rounded-[var(--radius-control)] border px-4 py-3 text-sm ${feedback.tone === "success" ? "border-[var(--status-success)]/25 bg-[var(--status-success-soft)] text-[var(--status-success)]" : "border-[var(--status-danger)]/25 bg-[var(--status-danger-soft)] text-[var(--status-danger)]"}`}
+          role={feedback.tone === "error" ? "alert" : "status"}
+        >
+          {feedback.tone === "success" ? <CheckCircle2 size={17} /> : <AlertTriangle size={17} />}
+          <span>{feedback.message}</span>
+        </div>
+      ) : null}
 
       {error ? (
         <Card className="px-6 py-14 text-center" role="alert">
@@ -95,8 +205,34 @@ export function WorkOrdersPage() {
       ) : mode === "demo" ? (
         <DemoWorkOrderList rows={demoRows} query={query} onQueryChange={setQuery} onTransition={transition} />
       ) : (
-        <RealWorkOrderList rows={realRows} query={query} onQueryChange={setQuery} hasAny={apiWorkOrders.length > 0} />
+        <RealWorkOrderList
+          rows={realRows}
+          query={query}
+          onQueryChange={setQuery}
+          hasAny={apiWorkOrders.length > 0}
+          actionId={actionId}
+          canWrite={mode !== "production"}
+          onAction={requestAction}
+        />
       )}
+
+      <ReasonCommandModal
+        draft={commandDraft}
+        reason={reason}
+        reasonError={reasonError}
+        busy={Boolean(actionId)}
+        onReasonChange={(value) => {
+          setReason(value);
+          if (value.trim()) setReasonError("");
+        }}
+        onClose={() => {
+          if (actionId) return;
+          setCommandDraft(null);
+          setReason("");
+          setReasonError("");
+        }}
+        onSubmit={submitReasonCommand}
+      />
     </>
   );
 }
@@ -123,11 +259,17 @@ function RealWorkOrderList({
   query,
   onQueryChange,
   hasAny,
+  actionId,
+  canWrite,
+  onAction,
 }: {
   rows: ProductionWorkOrder[];
   query: string;
   onQueryChange: (query: string) => void;
   hasAny: boolean;
+  actionId: string;
+  canWrite: boolean;
+  onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -137,6 +279,7 @@ function RealWorkOrderList({
           <div className="divide-y divide-[var(--stroke-subtle)] md:hidden">
             {rows.map((workOrder) => {
               const status = productionWorkOrderStatus[workOrder.status];
+              const latestEvent = workOrder.events[0];
               return (
                 <article key={workOrder.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
@@ -152,15 +295,27 @@ function RealWorkOrderList({
                     <span><span className="block text-[var(--text-tertiary)]">计划开工</span><b className="mt-1 block tabular-nums">{workOrder.scheduledStartAt}</b></span>
                   </div>
                   <p className="mt-3 text-xs text-[var(--text-secondary)]">{workOrder.operations.map((operation) => operation.name).join(" → ")}</p>
+                  {latestEvent ? (
+                    <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                      最近操作：{latestEvent.actor} · {latestEvent.createdAt}{latestEvent.reason ? ` · ${latestEvent.reason}` : ""}
+                    </p>
+                  ) : null}
+                  <WorkOrderActionButtons
+                    workOrder={workOrder}
+                    actionId={actionId}
+                    canWrite={canWrite}
+                    mobile
+                    onAction={onAction}
+                  />
                 </article>
               );
             })}
           </div>
 
           <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[960px] text-left">
+            <table className="w-full min-w-[1120px] text-left">
               <thead className="bg-[var(--surface-subtle)] text-[11px] text-[var(--text-tertiary)]">
-                <tr><th className="px-5 py-3">工单与批次</th><th className="px-5 py-3">商品与工作中心</th><th className="px-5 py-3">计划数量</th><th className="px-5 py-3">计划开工</th><th className="px-5 py-3">冻结工序</th><th className="px-5 py-3">状态</th></tr>
+                <tr><th className="px-5 py-3">工单与批次</th><th className="px-5 py-3">商品与工作中心</th><th className="px-5 py-3">计划数量</th><th className="px-5 py-3">计划开工</th><th className="px-5 py-3">冻结工序</th><th className="px-5 py-3">状态</th><th className="px-5 py-3">现场操作</th></tr>
               </thead>
               <tbody>
                 {rows.map((workOrder) => {
@@ -173,6 +328,9 @@ function RealWorkOrderList({
                       <td className="px-5 py-4 text-xs tabular-nums">{workOrder.scheduledStartAt}</td>
                       <td className="max-w-[260px] px-5 py-4 text-xs text-[var(--text-secondary)]"><span className="line-clamp-2">{workOrder.operations.map((operation) => operation.name).join(" → ")}</span></td>
                       <td className="px-5 py-4"><Badge tone={status.tone}>{status.label}</Badge></td>
+                      <td className="px-5 py-4">
+                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canWrite={canWrite} onAction={onAction} />
+                      </td>
                     </tr>
                   );
                 })}
@@ -184,6 +342,100 @@ function RealWorkOrderList({
         <WorkOrderEmpty filtered={hasAny} />
       )}
     </Card>
+  );
+}
+
+function WorkOrderActionButtons({
+  workOrder,
+  actionId,
+  canWrite,
+  mobile = false,
+  onAction,
+}: {
+  workOrder: ProductionWorkOrder;
+  actionId: string;
+  canWrite: boolean;
+  mobile?: boolean;
+  onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
+}) {
+  const actions = workOrderActions(workOrder.status);
+  if (!actions.length) return <span className="text-xs text-[var(--text-tertiary)]">无需操作</span>;
+  return (
+    <div className={`flex flex-wrap gap-2 ${mobile ? "mt-4 [&>button]:flex-1" : "min-w-[176px]"}`}>
+      {actions.map((action) => {
+        const operationId = `${workOrder.id}:${workOrder.revision}:${action.command}`;
+        return (
+          <Button
+            key={action.command}
+            size="sm"
+            variant={action.tone}
+            disabled={!canWrite || Boolean(actionId)}
+            title={!canWrite ? "生产身份与工位权限接入后可操作" : undefined}
+            aria-label={`${workOrder.code} ${action.label}`}
+            onClick={() => onAction(workOrder, action)}
+          >
+            {actionId === operationId ? <RefreshCw className="animate-spin" size={14} /> : null}
+            {action.label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ReasonCommandModal({
+  draft,
+  reason,
+  reasonError,
+  busy,
+  onReasonChange,
+  onClose,
+  onSubmit,
+}: {
+  draft: CommandDraft | null;
+  reason: string;
+  reasonError: string;
+  busy: boolean;
+  onReasonChange: (value: string) => void;
+  onClose: () => void;
+  onSubmit: () => void;
+}) {
+  const title = draft?.action.command === "pause" ? "暂停工单"
+    : draft?.action.command === "report-exception" ? "上报工单异常"
+      : "恢复工单";
+  const fieldLabel = draft?.action.command === "pause" ? "暂停原因"
+    : draft?.action.command === "report-exception" ? "异常说明"
+      : "处置说明";
+  return (
+    <Modal
+      open={Boolean(draft)}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={title}
+      description={draft ? `${draft.workOrder.code} · ${draft.workOrder.productName}` : undefined}
+      footer={(
+        <>
+          <Button variant="secondary" disabled={busy} onClick={onClose}>取消</Button>
+          <Button variant={draft?.action.tone ?? "primary"} disabled={busy} onClick={onSubmit}>
+            {busy ? <RefreshCw className="animate-spin" size={15} /> : null}
+            确认{draft?.action.label ?? "操作"}
+          </Button>
+        </>
+      )}
+    >
+      <Field label={fieldLabel} required hint="该说明会写入工单与生产批次审计记录。">
+        <textarea
+          autoFocus
+          value={reason}
+          onChange={(event) => onReasonChange(event.target.value)}
+          className={`${inputClass} min-h-28 resize-y py-3`}
+          maxLength={500}
+          aria-invalid={Boolean(reasonError)}
+          aria-describedby={reasonError ? "work-order-reason-error" : undefined}
+          placeholder={draft?.action.command === "pause" ? "例如：等待原料补充" : "简要说明现场情况和处理结果"}
+        />
+      </Field>
+      {reasonError ? <p id="work-order-reason-error" className="mt-2 text-sm text-[var(--status-danger)]" role="alert">{reasonError}</p> : null}
+    </Modal>
   );
 }
 
@@ -201,7 +453,7 @@ function DemoWorkOrderList({
   const action = (workOrder: WorkOrder, mobile = false) => {
     if (workOrder.status === "released") return <Button size="sm" className={mobile ? "w-full" : undefined} onClick={() => onTransition(workOrder.id, "in_progress")}><Play size={14} />开工</Button>;
     if (workOrder.status === "completed") return <Button size="sm" className={mobile ? "w-full" : undefined} variant="secondary" onClick={() => onTransition(workOrder.id, "closed")}>结案</Button>;
-    return <Link href={`/mes/stations/${workOrder.id}`} className={`focus-ring inline-flex items-center justify-center gap-1 rounded-[9px] text-xs font-semibold text-[var(--interactive)] ${mobile ? "h-9 w-full border border-[var(--stroke)]" : ""}`}>进入工位<ArrowRight size={13} /></Link>;
+    return <Link href={`/mes/stations/${workOrder.id}`} className={`focus-ring inline-flex items-center justify-center gap-1 rounded-[9px] text-xs font-semibold text-[var(--interactive)] ${mobile ? "h-11 w-full border border-[var(--stroke)]" : ""}`}>进入工位<ArrowRight size={13} /></Link>;
   };
 
   return (

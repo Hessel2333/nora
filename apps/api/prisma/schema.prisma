@@ -119,18 +119,53 @@ enum WorkOrderEventType {
   started
   paused
   resumed
+  recovered
   completed
   exception_reported
   cancelled
   status_changed
 }
 
+enum InventoryLocationType {
+  ambient_storage
+  cold_storage
+  frozen_storage
+  quarantine
+  finished_goods
+}
+
+enum InventoryLotQualityStatus {
+  pending
+  released
+  quarantined
+  rejected
+}
+
+enum InventoryTransactionType {
+  opening_balance
+  receipt
+  issue
+  return
+  produce
+  transfer_in
+  transfer_out
+  adjust_in
+  adjust_out
+  scrap
+  reversal
+}
+
+enum InventoryTransactionDirection {
+  inbound
+  outbound
+}
+
 model Organization {
-  id                     String                  @id @default(uuid()) @db.Uuid
-  code                   String                  @unique @db.VarChar(32)
-  name                   String                  @db.VarChar(120)
-  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime                @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                     String                   @id @default(uuid()) @db.Uuid
+  code                   String                   @unique @db.VarChar(32)
+  name                   String                   @db.VarChar(120)
+  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   customers              Customer[]
   products               Product[]
   salesOrders            SalesOrder[]
@@ -140,6 +175,10 @@ model Organization {
   productionBatchEvents  ProductionBatchEvent[]
   workOrders             WorkOrder[]
   workOrderEvents        WorkOrderEvent[]
+  inventoryLocations     InventoryLocation[]
+  inventoryLots          InventoryLot[]
+  inventoryTransactions  InventoryTransaction[]
+  stockBalances          StockBalanceProjection[]
   boms                   Bom[]
   bomVersionEvents       BomVersionEvent[]
   documentNumbers        DocumentNumber[]
@@ -170,29 +209,32 @@ model Customer {
 }
 
 model Product {
-  id                String                 @id @default(uuid()) @db.Uuid
-  organizationId    String                 @map("organization_id") @db.Uuid
-  organization      Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  code              String                 @db.VarChar(32)
-  name              String                 @db.VarChar(160)
-  type              ProductType
-  category          String                 @db.VarChar(80)
-  unit              String                 @db.VarChar(24)
-  cost              Decimal                @default(0) @db.Decimal(14, 4)
-  price             Decimal                @default(0) @db.Decimal(14, 2)
-  stock             Decimal                @default(0) @db.Decimal(14, 3)
-  safetyStock       Decimal                @default(0) @map("safety_stock") @db.Decimal(14, 3)
-  taxRate           Decimal                @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  tags              String[]               @default([])
-  status            RecordStatus           @default(active)
-  createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
-  orderLines        SalesOrderLine[]
-  demandLines       ProductionDemandLine[]
-  productionBatches ProductionBatch[]
-  workOrders        WorkOrder[]
-  boms              Bom[]                  @relation("BomOutputProduct")
-  bomItems          BomItem[]              @relation("BomComponentProduct")
+  id                    String                   @id @default(uuid()) @db.Uuid
+  organizationId        String                   @map("organization_id") @db.Uuid
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  code                  String                   @db.VarChar(32)
+  name                  String                   @db.VarChar(160)
+  type                  ProductType
+  category              String                   @db.VarChar(80)
+  unit                  String                   @db.VarChar(24)
+  cost                  Decimal                  @default(0) @db.Decimal(14, 4)
+  price                 Decimal                  @default(0) @db.Decimal(14, 2)
+  stock                 Decimal                  @default(0) @db.Decimal(14, 3)
+  safetyStock           Decimal                  @default(0) @map("safety_stock") @db.Decimal(14, 3)
+  taxRate               Decimal                  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  tags                  String[]                 @default([])
+  status                RecordStatus             @default(active)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orderLines            SalesOrderLine[]
+  demandLines           ProductionDemandLine[]
+  productionBatches     ProductionBatch[]
+  workOrders            WorkOrder[]
+  inventoryLots         InventoryLot[]
+  inventoryTransactions InventoryTransaction[]
+  stockBalances         StockBalanceProjection[]
+  boms                  Bom[]                    @relation("BomOutputProduct")
+  bomItems              BomItem[]                @relation("BomComponentProduct")
 
   @@unique([organizationId, code])
   @@index([organizationId, name])
@@ -387,9 +429,9 @@ model ProductionBatchEvent {
   details           Json?                    @db.JsonB
   createdAt         DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId, createdAt])
   @@index([productionBatchId, createdAt])
-  @@unique([organizationId, idempotencyKey])
   @@map("production_batch_events")
 }
 
@@ -428,21 +470,119 @@ model WorkOrder {
 }
 
 model WorkOrderEvent {
-  id             String             @id @default(uuid()) @db.Uuid
-  organizationId String             @map("organization_id") @db.Uuid
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  workOrderId    String             @map("work_order_id") @db.Uuid
-  workOrder      WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  type           WorkOrderEventType
-  actor          String             @db.VarChar(80)
-  status         WorkOrderStatus
-  revision       Int
-  details        Json?              @db.JsonB
-  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+  id              String             @id @default(uuid()) @db.Uuid
+  organizationId  String             @map("organization_id") @db.Uuid
+  organization    Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  workOrderId     String             @map("work_order_id") @db.Uuid
+  workOrder       WorkOrder          @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  type            WorkOrderEventType
+  actor           String             @db.VarChar(80)
+  fromStatus      WorkOrderStatus?    @map("from_status")
+  status          WorkOrderStatus
+  revision        Int
+  workstationCode String?            @map("workstation_code") @db.VarChar(80)
+  deviceId        String?            @map("device_id") @db.VarChar(120)
+  reason          String?            @db.VarChar(500)
+  idempotencyKey  String?            @map("idempotency_key") @db.VarChar(80)
+  details         Json?              @db.JsonB
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
 
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId, createdAt])
   @@index([workOrderId, createdAt])
   @@map("work_order_events")
+}
+
+model InventoryLocation {
+  id             String                   @id @default(uuid()) @db.Uuid
+  organizationId String                   @map("organization_id") @db.Uuid
+  organization   Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  factoryCode    String                   @map("factory_code") @db.VarChar(32)
+  code           String                   @db.VarChar(32)
+  name           String                   @db.VarChar(120)
+  type           InventoryLocationType
+  active         Boolean                  @default(true)
+  createdBy      String                   @map("created_by") @db.VarChar(80)
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  transactions   InventoryTransaction[]
+  stockBalances  StockBalanceProjection[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, factoryCode, active])
+  @@map("inventory_locations")
+}
+
+model InventoryLot {
+  id              String                    @id @default(uuid()) @db.Uuid
+  organizationId  String                    @map("organization_id") @db.Uuid
+  organization    Organization              @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productId       String                    @map("product_id") @db.Uuid
+  product         Product                   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  code            String                    @db.VarChar(64)
+  supplierLotCode String?                   @map("supplier_lot_code") @db.VarChar(80)
+  qualityStatus   InventoryLotQualityStatus @default(pending) @map("quality_status")
+  receivedAt      DateTime                  @map("received_at") @db.Timestamptz(3)
+  productionAt    DateTime?                 @map("production_at") @db.Timestamptz(3)
+  expiresAt       DateTime?                 @map("expires_at") @db.Timestamptz(3)
+  createdBy       String                    @map("created_by") @db.VarChar(80)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
+  transactions    InventoryTransaction[]
+  stockBalances   StockBalanceProjection[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, productId, qualityStatus, expiresAt])
+  @@map("inventory_lots")
+}
+
+model InventoryTransaction {
+  id             String                        @id @default(uuid()) @db.Uuid
+  organizationId String                        @map("organization_id") @db.Uuid
+  organization   Organization                  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locationId     String                        @map("location_id") @db.Uuid
+  location       InventoryLocation             @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  productId      String                        @map("product_id") @db.Uuid
+  product        Product                       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lotId          String                        @map("lot_id") @db.Uuid
+  lot            InventoryLot                  @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  type           InventoryTransactionType
+  direction      InventoryTransactionDirection
+  quantity       Decimal                       @db.Decimal(14, 3)
+  unit           String                        @db.VarChar(24)
+  sourceType     String                        @map("source_type") @db.VarChar(40)
+  sourceId       String?                       @map("source_id") @db.VarChar(80)
+  referenceCode  String?                       @map("reference_code") @db.VarChar(80)
+  note           String?                       @db.VarChar(500)
+  actor          String                        @db.VarChar(80)
+  idempotencyKey String                        @map("idempotency_key") @db.VarChar(80)
+  occurredAt     DateTime                      @map("occurred_at") @db.Timestamptz(3)
+  createdAt      DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, occurredAt])
+  @@index([organizationId, productId, lotId])
+  @@index([organizationId, locationId, occurredAt])
+  @@map("inventory_transactions")
+}
+
+model StockBalanceProjection {
+  id             String            @id @default(uuid()) @db.Uuid
+  organizationId String            @map("organization_id") @db.Uuid
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  locationId     String            @map("location_id") @db.Uuid
+  location       InventoryLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  productId      String            @map("product_id") @db.Uuid
+  product        Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lotId          String            @map("lot_id") @db.Uuid
+  lot            InventoryLot      @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  onHandQuantity Decimal           @default(0) @map("on_hand_quantity") @db.Decimal(14, 3)
+  revision       Int               @default(1)
+  updatedAt      DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([organizationId, locationId, productId, lotId])
+  @@index([organizationId, productId, onHandQuantity])
+  @@index([organizationId, locationId, onHandQuantity])
+  @@map("stock_balance_projections")
 }
 
 model Bom {

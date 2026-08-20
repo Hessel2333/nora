@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -45,7 +45,7 @@ import {
   type BomStructureNode,
   type ExplodedMaterial,
 } from "@/lib/bom-structure";
-import { getBomVersionValidityState, nextAvailableBomVersion, toLocalDateTimeInput } from "@/lib/bom-validity";
+import { findLatestBomDraft, getBomVersionValidityState, nextAvailableBomVersion, toLocalDateTimeInput } from "@/lib/bom-validity";
 import {
   detectPreprocessTemplate,
   editablePreprocessKinds,
@@ -173,6 +173,7 @@ export function BomWorkbenchPage({
   const [scheduledAt, setScheduledAt] = useState("");
   const [saving, setSaving] = useState(false);
   const [operationError, setOperationError] = useState("");
+  const editTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setSelectedVersionId(baseBom?.versionId);
@@ -223,21 +224,32 @@ export function BomWorkbenchPage({
   const maxDepth = Math.max(...nodes.map((node) => node.depth));
   const leafCount = nodes.filter((node) => !node.children.length && node.depth > 0).length;
   const directCost = bom.items.reduce((sum, item) => sum + (item.netQuantity / item.yieldRate) * item.unitCost, 0);
+  const latestDraft = findLatestBomDraft(baseBom);
 
   const handleCopy = async () => {
     setSaving(true);
     setOperationError("");
     try {
-      await copyBomVersion(
+      const created = await copyBomVersion(
         bom.id,
         nextAvailableBomVersion(bom.version, bom.versions?.map((version) => version.version) ?? [bom.version]),
         bom.versionId,
       );
+      if (!created.versionId) throw new Error("新草稿创建成功，但未返回版本标识");
+      setSelectedVersionId(created.versionId);
+      setEditorOpen(true);
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : "复制版本失败");
     } finally {
       setSaving(false);
     }
+  };
+
+  const continueDraft = () => {
+    if (!latestDraft) return;
+    setOperationError("");
+    setSelectedVersionId(latestDraft.id);
+    setEditorOpen(true);
   };
 
   const openPublish = () => {
@@ -333,7 +345,7 @@ export function BomWorkbenchPage({
               <div className="flex shrink-0 items-center gap-2">
                 {bom.status === "draft" ? (
                   <>
-                    <Button variant="secondary" onClick={() => setEditorOpen(true)}>
+                    <Button ref={editTriggerRef} variant="secondary" onClick={() => setEditorOpen(true)}>
                       <PencilLine size={16} />
                       编辑草稿
                     </Button>
@@ -343,10 +355,17 @@ export function BomWorkbenchPage({
                     </Button>
                   </>
                 ) : (
-                  <Button onClick={() => void handleCopy()} disabled={saving}>
-                    <PackagePlus size={16} />
-                    复制为新版本
-                  </Button>
+                  latestDraft ? (
+                    <Button ref={editTriggerRef} onClick={continueDraft}>
+                      <PencilLine size={16} />
+                      继续编辑 {latestDraft.version}
+                    </Button>
+                  ) : (
+                    <Button ref={editTriggerRef} onClick={() => void handleCopy()} disabled={saving}>
+                      <PackagePlus size={16} />
+                      {saving ? "正在创建…" : "创建变更版本"}
+                    </Button>
+                  )
                 )}
               </div>
             )}
@@ -405,6 +424,7 @@ export function BomWorkbenchPage({
         products={products}
         saving={saving}
         error={operationError}
+        returnFocusRef={editTriggerRef}
         onSave={handleSaveDraft}
       />
 
@@ -1063,6 +1083,7 @@ function BomEditorModal({
   products,
   saving,
   error,
+  returnFocusRef,
   onSave,
 }: {
   open: boolean;
@@ -1071,6 +1092,7 @@ function BomEditorModal({
   products: Product[];
   saving: boolean;
   error: string;
+  returnFocusRef: React.RefObject<HTMLButtonElement | null>;
   onSave: (bom: Bom) => Promise<void>;
 }) {
   const [outputQuantity, setOutputQuantity] = useState(bom.outputQuantity);
@@ -1219,6 +1241,7 @@ function BomEditorModal({
       onOpenChange={onOpenChange}
       title={`编辑 ${bom.version} 草稿`}
       size="xl"
+      returnFocusRef={returnFocusRef}
       footer={<><Button variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>取消</Button><Button onClick={submit} disabled={saving}><Save size={16} />{saving ? "保存中…" : "保存草稿"}</Button></>}
     >
       <div className="space-y-5">

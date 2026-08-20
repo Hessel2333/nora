@@ -12,6 +12,7 @@ describe("production capability routes", () => {
     "/catalog/boms/550e8400-e29b-41d4-a716-446655440000",
     "/production/plans",
     "/production/work-orders",
+    "/inventory/stock",
     "/help",
     "/help/order-and-demand/production-demand",
   ])("allows production-safe read route %s", (pathname) => {

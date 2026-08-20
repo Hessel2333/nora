@@ -100,6 +100,12 @@ async function captureRecipeSnapshot(productId: string, asAt: Date, capturedAt: 
 
 const ids = {
   organization: "00000000-0000-4000-8000-000000000001",
+  locations: {
+    rawCold: "11000000-0000-4000-8000-000000000001",
+    rawFrozen: "11000000-0000-4000-8000-000000000002",
+    quarantine: "11000000-0000-4000-8000-000000000003",
+    finishedCold: "11000000-0000-4000-8000-000000000004",
+  },
   customers: [
     "10000000-0000-4000-8000-000000000001",
     "10000000-0000-4000-8000-000000000002",
@@ -123,6 +129,13 @@ const ids = {
     greens: "20000000-0000-4000-8000-000000000014",
   },
 };
+
+const inventoryLocationSeeds = [
+  { id: ids.locations.rawCold, factoryCode: "SZ-CENTRAL", code: "RAW-COLD-01", name: "原料冷藏库", type: "cold_storage" as const },
+  { id: ids.locations.rawFrozen, factoryCode: "SZ-CENTRAL", code: "RAW-FROZEN-01", name: "原料冷冻库", type: "frozen_storage" as const },
+  { id: ids.locations.quarantine, factoryCode: "SZ-CENTRAL", code: "QUARANTINE-01", name: "待检隔离区", type: "quarantine" as const },
+  { id: ids.locations.finishedCold, factoryCode: "SZ-CENTRAL", code: "FG-COLD-01", name: "成品冷藏库", type: "finished_goods" as const },
+];
 
 const operationIds = {
   gongbao: {
@@ -154,7 +167,14 @@ const operationIds = {
 async function main() {
   const exists = await prisma.organization.findUnique({ where: { code: "NORA-DEMO" } });
   if (exists) {
-    console.log("Nora 本地演示数据已存在，跳过 Seed。");
+    for (const location of inventoryLocationSeeds) {
+      await prisma.inventoryLocation.upsert({
+        where: { organizationId_code: { organizationId: exists.id, code: location.code } },
+        update: { name: location.name, factoryCode: location.factoryCode, type: location.type, active: true },
+        create: { ...location, organizationId: exists.id, createdBy: "seed:demo-data" },
+      });
+    }
+    console.log("Nora 本地演示数据已存在，已同步库存库位主数据。");
     return;
   }
 
@@ -188,6 +208,12 @@ async function main() {
           { id: ids.products.sugar, code: "RM03003", name: "白砂糖", type: "raw", category: "调味料", unit: "kg", cost: 7.2, stock: 120, safetyStock: 30, taxRate: 13 },
           { id: ids.products.greens, code: "RM04001", name: "当日时蔬", type: "raw", category: "叶菜类", unit: "kg", cost: 8.4, stock: 65, safetyStock: 80, taxRate: 9 },
         ],
+      },
+      inventoryLocations: {
+        create: inventoryLocationSeeds.map((location) => ({
+          ...location,
+          createdBy: "seed:demo-data",
+        })),
       },
       documentNumbers: {
         create: [

@@ -26,4 +26,11 @@
 
 ## 当前状态
 
-当前仓库页面与 Mock 数据不是生产级库存实现。落地模型、并发锁定和对账策略见 [ADR-0004](../decisions/0004-inventory-ledger.md)。
+当前已实现首个库存纵向切片：
+
+- `InventoryLocation`、`InventoryLot`、追加式 `InventoryTransaction` 和 `StockBalanceProjection` 已有正式 migration。
+- 期初入账在一个 Serializable 事务中创建批次、入账流水和相等余额；组织范围、产品单位、正数 Decimal、批次唯一性和幂等键由服务与数据库共同保护。
+- 数据库触发器禁止修改或删除已记账流水；余额投影禁止为负，可从流水重建。
+- `/inventory/stock` 正式页面只读余额投影，不使用 `Product.stock`；development 支持期初盘点入账，production 在真实身份接入前拒绝写入。
+
+采购收货、扫码领退料、调拨、报废、质量放行、成品入库、库存预占和投影对账作业仍未实现。并发锁定与完整对账策略继续遵循 [ADR-0004](../decisions/0004-inventory-ledger.md)。

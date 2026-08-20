@@ -27,6 +27,7 @@ import {
   Database,
   ClipboardList,
   CircleQuestionMark,
+  Warehouse,
 } from "lucide-react";
 import { EnvironmentStatus, ProductionCapabilityBoundary } from "@/components/environment-status";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,7 @@ const navigation = [
     items: [
       { label: "生产准备", href: "/production/plans", icon: Route },
       { label: "生产工单", href: "/production/work-orders", icon: ClipboardList },
+      { label: "库存台账", href: "/inventory/stock", icon: Warehouse },
       { label: "MES 执行", href: "/mes", icon: ScanLine },
       { label: "工厂态势", href: "/digital-twin", icon: Factory },
     ],
@@ -82,6 +84,7 @@ const navigation = [
 const commands = [
   ["创建销售订单", "/orders/new"],
   ["查看生产准备", "/production/plans"],
+  ["查看库存台账", "/inventory/stock"],
   ["进入 MES 工位", "/mes"],
   ["配方爆炸图", "/production/bom-explosion"],
   ["订单物料拆解", "/production/material-explosion"],

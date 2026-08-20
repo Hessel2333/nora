@@ -5,7 +5,12 @@ import type {
   ProductionBatch,
   ProductionDemand,
   ProductionWorkOrder,
+  ProductionWorkOrderCommand,
   SalesOrder,
+  InventoryLocation,
+  InventoryLotQualityStatus,
+  InventoryStockBalance,
+  InventoryTransaction,
 } from "./types";
 import { frontendAuditActor, getNoraRuntimeMode } from "./runtime-mode";
 
@@ -178,6 +183,66 @@ export const noraApi = {
 
   workOrders() {
     return request<{ data: ProductionWorkOrder[] }>("/work-orders");
+  },
+
+  transitionWorkOrder(
+    id: string,
+    command: ProductionWorkOrderCommand,
+    input: {
+      revision: number;
+      workstationCode: string;
+      deviceId: string;
+      reason?: string;
+    },
+    idempotencyKey: string,
+  ) {
+    const targetStatus = command === "recover-pending" ? "pending"
+      : command === "recover-running" ? "running"
+        : undefined;
+    const path = command.startsWith("recover-") ? "recover" : command;
+    return request<ProductionWorkOrder>(`/work-orders/${id}/${path}`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ ...input, targetStatus, actor: auditActor }),
+    });
+  },
+
+  inventoryLocations() {
+    return request<{ data: InventoryLocation[] }>("/inventory/locations");
+  },
+
+  inventoryStock() {
+    return request<{ data: InventoryStockBalance[] }>("/inventory/stock");
+  },
+
+  inventoryTransactions() {
+    return request<{ data: InventoryTransaction[] }>("/inventory/transactions");
+  },
+
+  createOpeningBalance(
+    input: {
+      locationId: string;
+      productId: string;
+      lotCode: string;
+      supplierLotCode?: string;
+      quantity: string;
+      unit: string;
+      qualityStatus: InventoryLotQualityStatus;
+      receivedAt: string;
+      productionAt?: string;
+      expiresAt?: string;
+      note?: string;
+    },
+    idempotencyKey: string,
+  ) {
+    return request<{ transaction: InventoryTransaction; balance: InventoryStockBalance }>(
+      "/inventory/opening-balances",
+      {
+        method: "POST",
+        headers: { "Idempotency-Key": idempotencyKey },
+        body: JSON.stringify({ ...input, actor: auditActor }),
+      },
+    );
   },
 
   copyBomVersion(id: string, version: string, sourceVersionId?: string) {

@@ -1,4 +1,4 @@
-import type { BomVersionValidityState } from "./types";
+import type { Bom, BomVersionValidityState } from "./types";
 
 type VersionWindow = {
   status: "effective" | "draft" | "retired";
@@ -34,4 +34,31 @@ export function nextAvailableBomVersion(current: string, existing: string[]) {
     candidate = `${prefix}${number}`;
   }
   return candidate;
+}
+
+type BomVersionSummary = NonNullable<Bom["versions"]>[number];
+
+function latestVersionActivity(version: BomVersionSummary) {
+  return Math.max(
+    0,
+    ...(version.events ?? []).map((event) => new Date(event.createdAt).getTime()),
+  );
+}
+
+export function findLatestBomDraft(
+  bom: Pick<Bom, "status" | "versionId" | "versions">,
+): BomVersionSummary | undefined {
+  if (bom.status === "draft" && bom.versionId) {
+    const selectedDraft = bom.versions?.find((version) => version.id === bom.versionId);
+    if (selectedDraft?.status === "draft") return selectedDraft;
+  }
+
+  return (bom.versions ?? [])
+    .filter((version) => version.status === "draft")
+    .reduce<BomVersionSummary | undefined>((latest, candidate) => {
+      if (!latest) return candidate;
+      return latestVersionActivity(candidate) > latestVersionActivity(latest)
+        ? candidate
+        : latest;
+    }, undefined);
 }

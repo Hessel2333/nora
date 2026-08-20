@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getBomVersionValidityState, nextAvailableBomVersion, toLocalDateTimeInput } from "./bom-validity";
+import { findLatestBomDraft, getBomVersionValidityState, nextAvailableBomVersion, toLocalDateTimeInput } from "./bom-validity";
 
 describe("BOM validity presentation", () => {
   const now = new Date("2026-08-18T08:00:00Z");
@@ -28,5 +28,41 @@ describe("BOM validity presentation", () => {
 
   it("skips version labels already used by another draft or scheduled release", () => {
     expect(nextAvailableBomVersion("V2.1", ["V2.1", "V2.2", "V2.3"])).toBe("V2.4");
+  });
+
+  it("prefers the draft currently selected by the API", () => {
+    expect(findLatestBomDraft({
+      status: "draft",
+      versionId: "draft-selected",
+      versions: [
+        { id: "draft-newer", version: "V2.3", status: "draft", effectiveAt: null, revision: 1, events: [] },
+        { id: "draft-selected", version: "V2.2", status: "draft", effectiveAt: null, revision: 1, events: [] },
+      ],
+    })?.id).toBe("draft-selected");
+  });
+
+  it("finds the most recently active draft when a published version is selected", () => {
+    expect(findLatestBomDraft({
+      status: "effective",
+      versionId: "current",
+      versions: [
+        {
+          id: "draft-old",
+          version: "V2.2",
+          status: "draft",
+          effectiveAt: null,
+          revision: 2,
+          events: [{ id: "event-old", type: "updated", actor: "user", revision: 2, effectiveAt: null, createdAt: "2026-08-19T08:00:00Z" }],
+        },
+        {
+          id: "draft-new",
+          version: "V2.3",
+          status: "draft",
+          effectiveAt: null,
+          revision: 1,
+          events: [{ id: "event-new", type: "created", actor: "user", revision: 1, effectiveAt: null, createdAt: "2026-08-20T08:00:00Z" }],
+        },
+      ],
+    })?.id).toBe("draft-new");
   });
 });

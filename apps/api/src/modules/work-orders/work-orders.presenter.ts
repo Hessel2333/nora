@@ -4,7 +4,7 @@ import { isExecutableRecipeSnapshot } from "../boms/recipe-snapshot.js";
 
 export const workOrderInclude = {
   productionBatch: {
-    select: { id: true, code: true, status: true },
+    select: { id: true, code: true, status: true, revision: true },
   },
   events: { orderBy: { createdAt: "desc" as const } },
 } satisfies Prisma.WorkOrderInclude;
@@ -58,8 +58,12 @@ export function presentWorkOrder(workOrder: WorkOrderRecord) {
       id: event.id,
       type: event.type,
       actor: event.actor,
+      fromStatus: event.fromStatus,
       status: event.status,
       revision: event.revision,
+      workstationCode: event.workstationCode,
+      deviceId: event.deviceId,
+      reason: event.reason,
       createdAt: formatLocalDateTime(event.createdAt),
     })),
   };

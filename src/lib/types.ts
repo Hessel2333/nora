@@ -20,6 +20,62 @@ export interface Product {
   status: "active" | "draft";
 }
 
+export type InventoryLocationType =
+  | "ambient_storage"
+  | "cold_storage"
+  | "frozen_storage"
+  | "quarantine"
+  | "finished_goods";
+
+export type InventoryLotQualityStatus = "pending" | "released" | "quarantined" | "rejected";
+
+export interface InventoryLocation {
+  id: string;
+  factoryCode: string;
+  code: string;
+  name: string;
+  type: InventoryLocationType;
+  active: boolean;
+}
+
+export interface InventoryStockBalance {
+  id: string;
+  location: Pick<InventoryLocation, "id" | "code" | "name" | "type">;
+  product: { id: string; code: string; name: string; category: string };
+  lot: {
+    id: string;
+    code: string;
+    supplierLotCode: string | null;
+    qualityStatus: InventoryLotQualityStatus;
+    receivedAt: string;
+    productionAt: string | null;
+    expiresAt: string | null;
+  };
+  onHandQuantity: string;
+  availableQuantity: string;
+  unit: string;
+  revision: number;
+  updatedAt: string;
+}
+
+export interface InventoryTransaction {
+  id: string;
+  location: { id: string; code: string; name: string };
+  product: { id: string; code: string; name: string };
+  lot: { id: string; code: string; qualityStatus: InventoryLotQualityStatus };
+  type: "opening_balance" | "receipt" | "issue" | "return" | "produce" | "transfer_in" | "transfer_out" | "adjust_in" | "adjust_out" | "scrap" | "reversal";
+  direction: "inbound" | "outbound";
+  quantity: string;
+  unit: string;
+  sourceType: string;
+  sourceId: string | null;
+  referenceCode: string | null;
+  note: string | null;
+  actor: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
 export interface BomItem {
   id: string;
   componentId: string;
@@ -221,6 +277,14 @@ export type ProductionWorkOrderStatus =
   | "exception"
   | "cancelled";
 
+export type ProductionWorkOrderCommand =
+  | "start"
+  | "pause"
+  | "resume"
+  | "report-exception"
+  | "recover-pending"
+  | "recover-running";
+
 export interface ProductionWorkOrder {
   id: string;
   code: string;
@@ -258,8 +322,12 @@ export interface ProductionWorkOrder {
     id: string;
     type: string;
     actor: string;
+    fromStatus: ProductionWorkOrderStatus | null;
     status: ProductionWorkOrderStatus;
     revision: number;
+    workstationCode: string | null;
+    deviceId: string | null;
+    reason: string | null;
     createdAt: string;
   }>;
 }
