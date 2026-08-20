@@ -30,6 +30,9 @@ async function bootstrap() {
     .addTag("catalog")
     .addTag("orders")
     .addTag("boms")
+    .addTag("production-demands")
+    .addTag("production-batches")
+    .addTag("work-orders")
     .build();
   SwaggerModule.setup("api/docs", app, SwaggerModule.createDocument(app, openApi));
 

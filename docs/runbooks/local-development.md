@@ -3,7 +3,7 @@
 ## 环境要求
 
 - Node.js 20 以上，推荐当前 LTS
-- pnpm 11
+- pnpm 10.26.0（与 `packageManager` 和 CI 保持一致）
 - Docker Desktop 或兼容的 Docker Engine
 - Docker Compose
 
@@ -21,6 +21,8 @@ pnpm dev:full
 2. 执行已提交的 Prisma migrations。
 3. 幂等初始化 Nora 演示组织、客户、商品、订单和 BOM。
 4. 并行启动 Next.js 与 NestJS。
+
+开发前端使用独立的 `.next-dev` 输出目录，生产构建继续使用 `.next`。这样可以在开发服务运行时执行 `pnpm build`，不会用生产产物污染热更新清单。
 
 Seed 不会覆盖已有组织数据；检测到 `NORA-DEMO` 后会直接跳过。
 
@@ -75,7 +77,7 @@ Swagger UI 位于 `http://localhost:3100/api/docs`。
 
 ### 前端仍显示演示数据
 
-确认 API 健康检查通过，并检查 `.env` 中的 `NEXT_PUBLIC_API_BASE_URL`。前端在 API 不可用时会保留离线 Demo 数据，避免界面完全失效。
+确认当前确实使用 `NORA_MODE=demo`。`development` 和 `production` 模式都不会在 API 不可用时静默回退到 Mock；请检查健康接口、`.env` 中的 `NEXT_PUBLIC_API_BASE_URL` 和页面顶部的环境状态。
 
 ## 停止服务
 

@@ -204,7 +204,7 @@ export function FactorySchematic({ rooms, selectedId, focusedId, showRooms, vari
           />
         )) : null}
         {showBatchFlow ? (
-          <g aria-label="批次 PL20260813-028 正沿生产路线移动">
+          <g aria-label="演示批次 DEMO-PL-028 正沿生产路线移动">
             <path className="factory-batch-route" d="M185 198 L222 198 L222 174 L287 174 L287 147 L287 174 L397 174 L397 145 L397 174 L883 174 L883 202 L883 174 L883 147 L883 174 L1043 174 L1043 289 L1043 348" />
             <circle
               className="factory-batch-pulse"

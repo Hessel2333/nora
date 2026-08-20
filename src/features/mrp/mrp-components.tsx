@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronsUpDown,
-  CookingPot,
   Download,
   Eye,
   FileSpreadsheet,
@@ -35,7 +34,7 @@ import {
 
 const typeLabels: Record<MrpNodeType, string> = {
   order: "订单",
-  dish: "菜品",
+  dish: "净菜产品",
   semi: "半成品",
   raw: "原料",
 };
@@ -49,7 +48,7 @@ const typeBadgeTone: Record<MrpNodeType, "info" | "purple" | "success" | "neutra
 
 const typeIcon = {
   order: PackageOpen,
-  dish: CookingPot,
+  dish: Boxes,
   semi: Layers3,
   raw: Warehouse,
 };
@@ -292,7 +291,7 @@ export function DemandPivotTable({ materials, selectedMaterialId, onSelect }: { 
   }, [filteredMaterials]);
 
   const exportRows = () => downloadCsv("日期物料需求透视.csv", [
-    ["物料编码", "原料", "分类", "需求量", "单位", "现存", "已占用", "可用库存", "缺口", "覆盖率", "单位成本", "采购建议金额", "交期", "来源菜品"],
+    ["物料编码", "原料", "分类", "需求量", "单位", "现存", "已占用", "可用库存", "缺口", "覆盖率", "单位成本", "采购建议金额", "交期", "来源产品"],
     ...filteredMaterials.map((material) => {
       const shortage = materialShortage(material);
       return [material.code, material.name, material.category, material.demand, material.unit, material.onHand, material.allocated, Math.max(0, material.onHand - material.allocated), shortage, `${materialCoverage(material)}%`, material.unitCost, shortage * material.unitCost, material.leadTime, material.contributions.map((item) => item.source).join(" / ")];
@@ -309,9 +308,9 @@ export function DemandPivotTable({ materials, selectedMaterialId, onSelect }: { 
     <div className="flex flex-wrap items-center gap-2 border-b border-[#e8edf3] bg-white p-3">
       <div className="inline-flex h-9 rounded-[9px] border border-[#dce3ed] bg-[#f6f8fb] p-0.5">
         <button onClick={() => setGroupMode("material")} className={cn("focus-ring rounded-[7px] px-3 text-xs font-medium", groupMode === "material" ? "bg-white text-[#1768f2] shadow-sm" : "text-[#68758d]")}>按原料</button>
-        <button onClick={() => setGroupMode("source")} className={cn("focus-ring rounded-[7px] px-3 text-xs font-medium", groupMode === "source" ? "bg-white text-[#1768f2] shadow-sm" : "text-[#68758d]")}>按菜品来源</button>
+        <button onClick={() => setGroupMode("source")} className={cn("focus-ring rounded-[7px] px-3 text-xs font-medium", groupMode === "source" ? "bg-white text-[#1768f2] shadow-sm" : "text-[#68758d]")}>按产品来源</button>
       </div>
-      <div className="relative min-w-[200px] flex-1 sm:max-w-[330px]"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b96a8]" /><input value={query} onChange={(event) => setQuery(event.target.value)} className={`${inputClass} h-9 pl-9 text-xs`} placeholder="搜索原料、编码或来源菜品" /></div>
+      <div className="relative min-w-[200px] flex-1 sm:max-w-[330px]"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8b96a8]" /><input value={query} onChange={(event) => setQuery(event.target.value)} className={`${inputClass} h-9 pl-9 text-xs`} placeholder="搜索原料、编码或来源产品" /></div>
       <button onClick={() => setShortageOnly((value) => !value)} className={cn("focus-ring inline-flex h-9 items-center gap-2 rounded-[9px] border px-3 text-xs font-medium", shortageOnly ? "border-[#ef9d9d] bg-[#fff3f3] text-[#d83d3d]" : "border-[#dce3ed] bg-white text-[#53617a]")}><AlertTriangle size={14} />仅看缺料</button>
       <Button size="sm" variant="secondary" onClick={() => setCompact((value) => !value)}><FileSpreadsheet size={14} />{compact ? "标准密度" : "紧凑密度"}</Button>
       <Button size="sm" variant="secondary" onClick={exportRows}><Download size={14} />导出 CSV</Button>
@@ -352,7 +351,7 @@ function DemandMaterialRows({ material, available, shortage, coverage, expanded,
 
 function SourceGroupRows({ source, items, expanded, compact, selectedMaterialId, onToggle, onSelect }: { source: string; items: Array<{ material: DemandMaterial; contribution: DemandMaterial["contributions"][number] }>; expanded: boolean; compact: boolean; selectedMaterialId: string | null; onToggle: () => void; onSelect: (id: string) => void }) {
   return <>
-    <tr className="border-t border-[#e8edf3] bg-[#fafbfd]"><td className={cn("sticky left-0 z-10 bg-[#fafbfd] px-4", compact ? "py-1.5" : "py-2.5")}><div className="flex items-center"><RowExpander expanded={expanded} childCount={items.length} onClick={onToggle} /><span className="ml-1 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#efedff] text-[#6858e8]"><CookingPot size={14} /></span><span><b className="block text-[12px]">{source}</b><span className="text-[9px] text-[#8b96a8]">{items.length} 项原料</span></span></span></div></td><td className="px-3"><Badge tone="purple">菜品汇总</Badge></td><td colSpan={9} className="px-3 text-[10px] text-[#7e8a9f]">不同计量单位不做合计，请展开查看原始用量</td></tr>
+    <tr className="border-t border-[#e8edf3] bg-[#fafbfd]"><td className={cn("sticky left-0 z-10 bg-[#fafbfd] px-4", compact ? "py-1.5" : "py-2.5")}><div className="flex items-center"><RowExpander expanded={expanded} childCount={items.length} onClick={onToggle} /><span className="ml-1 flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#efedff] text-[#6858e8]"><Boxes size={14} /></span><span><b className="block text-[12px]">{source}</b><span className="text-[9px] text-[#8b96a8]">{items.length} 项原料</span></span></span></div></td><td className="px-3"><Badge tone="purple">产品汇总</Badge></td><td colSpan={9} className="px-3 text-[10px] text-[#7e8a9f]">不同计量单位不做合计，请展开查看原始用量</td></tr>
     {expanded ? items.map(({ material, contribution }) => {
       const shortage = materialShortage(material);
       const coverage = materialCoverage(material);

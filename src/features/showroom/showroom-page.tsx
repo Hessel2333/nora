@@ -55,7 +55,7 @@ export function ShowroomPage({ options }: { options: ShowroomOptions }) {
       <a className={styles.skipLink} href="#showroom-stage">跳到演示内容</a>
       <div className={styles.shell}>
         <header className={styles.brandBar}>
-          <div className={styles.brandMark}><span>N</span><strong>NORA</strong><small>数字展厅</small></div>
+          <div className={styles.brandMark}><span>宸</span><strong>宸润数智</strong><small>央厨 ERP</small></div>
           <div className={styles.brandStatus}>
             <span>{controller.userInteracting ? "互动浏览" : controller.state.playing ? "自动演示" : controller.started ? "演示已暂停" : "即将开始"}</span>
             <i className={controller.state.playing ? styles.statusPlaying : ""} />

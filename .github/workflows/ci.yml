@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_NORA_MODE: production
+      NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:3100/api/v1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm docs:check
+      - run: pnpm typecheck:web
+      - run: pnpm lint
+      - run: pnpm test:web
+      - run: pnpm build:web
+
+  api-and-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.13-alpine
+        env:
+          POSTGRES_DB: nora
+          POSTGRES_USER: nora
+          POSTGRES_PASSWORD: nora
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nora -d nora"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://nora:nora@127.0.0.1:5432/nora?schema=public
+      NORA_MODE: development
+      NORA_ORGANIZATION_ID: 00000000-0000-4000-8000-000000000001
+      PORT: 3100
+      CORS_ORIGIN: http://127.0.0.1:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:deploy
+      - run: pnpm db:seed
+      - run: pnpm db:seed
+      - run: pnpm typecheck:api
+      - run: pnpm test:api
+      - run: pnpm build:api
+      - name: Start API and run smoke test
+        run: |
+          pnpm --dir apps/api start > /tmp/nora-api.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3100/api/v1/health >/dev/null; then
+              pnpm test:smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/nora-api.log
+          exit 1

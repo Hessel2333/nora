@@ -1695,7 +1695,7 @@
 
 .progressRail {
   right: clamp(250px, 19vw, 370px);
-  grid-template-columns: repeat(9, 1fr);
+  grid-template-columns: repeat(10, 1fr);
   gap: clamp(7px, 0.7vw, 14px);
 }
 
@@ -1959,9 +1959,11 @@
 }
 
 .bomLayerNodes button[data-position="0"] { top: 0; }
-.bomLayerNodes button[data-position="1"] { top: 25%; }
-.bomLayerNodes button[data-position="2"] { top: 52%; }
-.bomLayerNodes button[data-position="3"] { top: 78%; }
+.bomLayerNodes button[data-position="1"] { top: 17%; }
+.bomLayerNodes button[data-position="2"] { top: 34%; }
+.bomLayerNodes button[data-position="3"] { top: 51%; }
+.bomLayerNodes button[data-position="4"] { top: 68%; }
+.bomLayerNodes button[data-position="5"] { top: 85%; }
 .bomLayerNodes button:hover,
 .bomLayerNodes button:focus-visible,
 .bomLayerNodes .bomLayerActive { outline: none; transform: translateX(8px); border-color: #5e9cff; }
@@ -2719,6 +2721,69 @@
 .procurementRecommendation > div span { grid-column: 1 / -1; display: block; height: 3px; overflow: hidden; background: rgba(128, 160, 202, 0.12); }
 .procurementRecommendation > div b { display: block; width: 100%; height: 100%; transform: scaleX(var(--score)); transform-origin: left; background: linear-gradient(90deg, #3c826c, #5cc89e); }
 
+/* Scheduling · a visible, explainable sequencing recommendation */
+.schedulingCanvas {
+  position: absolute;
+  top: 29%;
+  right: clamp(48px, 5.4vw, 104px);
+  bottom: 14%;
+  left: clamp(48px, 5.4vw, 104px);
+}
+
+.schedulingDecision {
+  position: absolute;
+  top: 2%;
+  bottom: 1%;
+  left: 0;
+  display: flex;
+  width: 22%;
+  flex-direction: column;
+  border-left: 2px solid #4c8dff;
+  padding-left: clamp(16px, 1.3vw, 25px);
+}
+
+.schedulingDecision > span { width: max-content; border: 1px solid rgba(88, 153, 239, 0.25); border-radius: 999px; padding: 0.35rem 0.7rem; color: #7caaf0; font-size: var(--showroom-label); }
+.schedulingDecision > small { margin-top: clamp(18px, 1.6vw, 30px); color: #8da0b8; }
+.schedulingDecision > strong { margin-top: 0.15rem; font-size: var(--showroom-primary-metric); font-weight: 600; letter-spacing: -0.06em; }
+.schedulingDecision > strong em { margin-left: 0.3rem; color: #8292a7; font-size: 0.3em; font-style: normal; }
+.schedulingDecision > p { display: flex; align-items: center; gap: 0.55rem; margin: 0.4rem 0 0; color: #6fa3ef; font-size: var(--showroom-body); }
+.schedulingDecision > div { margin-top: auto; border-top: 1px solid rgba(123, 161, 208, 0.18); padding-top: clamp(16px, 1.4vw, 27px); }
+.schedulingDecision > div h2 { margin: 0.25rem 0 0; font-size: var(--showroom-scene-h2); font-weight: 600; letter-spacing: -0.035em; }
+.schedulingDecision > div p { margin: 0.7rem 0 0; color: #a7b5c6; font-size: var(--showroom-body); line-height: 1.55; }
+
+.schedulingLogic { position: absolute; inset: 0 0 0 28%; }
+.schedulingReasons { display: flex; justify-content: flex-end; gap: clamp(8px, 0.8vw, 15px); }
+.schedulingReasons span { display: flex; align-items: center; gap: 0.45rem; border-left: 1px solid rgba(111, 159, 224, 0.24); padding-left: clamp(9px, 0.75vw, 14px); color: #91a5bf; font-size: var(--showroom-label); }
+.schedulingReasons svg { color: #6c9de3; }
+
+.scheduleMainLane { position: absolute; top: 17%; right: 0; left: 0; height: 43%; }
+.scheduleMainLane > header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(121, 159, 208, 0.16); padding-bottom: 0.75rem; }
+.scheduleMainLane > header span { color: #d4deea; font-size: var(--showroom-body); font-weight: 600; }
+.scheduleMainLane > header strong { color: #729fe0; font-size: var(--showroom-label); font-weight: 600; }
+.scheduleRailLine { position: absolute; top: 72px; right: 6%; left: 6%; height: 2px; overflow: hidden; background: rgba(119, 157, 207, 0.16); }
+.scheduleRailLine i { display: block; width: 100%; height: 100%; transform: scaleX(var(--schedule-progress)); transform-origin: left; background: linear-gradient(90deg, #4c8dff, #42c7d7); transition: transform 360ms linear; }
+.scheduleSteps { position: absolute; top: 58px; right: 0; left: 0; display: grid; grid-template-columns: repeat(5, 1fr); }
+.scheduleSteps > div { position: relative; display: flex; min-width: 0; align-items: center; flex-direction: column; padding-inline: clamp(6px, 0.7vw, 13px); text-align: center; opacity: 0.38; transition: opacity 340ms ease, transform 420ms ease; }
+.scheduleSteps > div > i { position: relative; display: grid; width: 30px; aspect-ratio: 1; place-items: center; border: 1px solid #405978; border-radius: 50%; background: #0d1c2c; }
+.scheduleSteps > div > i span { width: 7px; aspect-ratio: 1; border-radius: 50%; background: #657d9d; }
+.scheduleSteps small { margin-top: 0.75rem; color: #70a4ef; }
+.scheduleSteps strong { margin-top: 0.2rem; font-size: var(--showroom-body); font-weight: 600; }
+.scheduleSteps p { min-height: 2.6em; margin: 0.35rem 0 0; color: #8394aa; font-size: var(--showroom-label); line-height: 1.3; }
+.scheduleSteps em { margin-top: 0.4rem; color: #667b96; font-size: var(--showroom-label); font-style: normal; }
+.scheduleSteps .scheduleStepActive { opacity: 1; transform: translateY(-3px); }
+.scheduleSteps .scheduleStepActive > i { border-color: #5d9df8; box-shadow: 0 0 0 8px rgba(76, 141, 255, 0.08); }
+.scheduleSteps .scheduleStepActive > i span { background: #63a3ff; }
+
+.parallelWindow { position: absolute; right: 0; bottom: 1%; left: 0; border-top: 1px solid rgba(67, 186, 139, 0.28); padding-top: clamp(14px, 1.2vw, 23px); opacity: 0; transform: translateY(12px); transition: opacity 560ms ease, transform 720ms cubic-bezier(0.16, 1, 0.3, 1); }
+.parallelWindow > header { display: flex; align-items: center; gap: 0.6rem; color: #64c39a; }
+.parallelWindow > header span { font-size: var(--showroom-body); font-weight: 600; }
+.parallelWindow > header strong { margin-left: auto; font-size: var(--showroom-label); font-weight: 600; }
+.parallelWindow > div { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(18px, 2vw, 38px); margin-top: 1rem; }
+.parallelWindow > div > span { display: grid; grid-template-columns: auto 1fr; gap: 0.2rem 0.9rem; border-left: 1px solid rgba(80, 190, 149, 0.25); padding-left: 1rem; }
+.parallelWindow > div small { grid-row: 1 / 3; align-self: center; color: #65c79e; }
+.parallelWindow > div strong { font-size: var(--showroom-body); font-weight: 600; }
+.parallelWindow > div p { margin: 0; color: #899aaf; font-size: var(--showroom-label); }
+
 /* Business · margin causality bridge */
 .marginCanvas {
   position: absolute;
@@ -2894,6 +2959,8 @@
 .orderSourceNode > strong em { margin-left: 0.25rem; color: #8192a8; font-size: 0.3em; font-style: normal; }
 .orderSourceNode > span { margin-top: 0.4rem; color: #78a2de; font-family: "SFMono-Regular", Consolas, monospace; font-size: var(--showroom-label); }
 .orderSourceNode > p { margin: 0.25rem 0 0; color: #8c9cb1; font-size: var(--showroom-label); }
+.orderSourceNode > .orderCustomerName { margin: 0 0 0.55rem; color: #dce6f2; font-family: inherit; font-size: var(--showroom-body); font-weight: 600; line-height: 1.35; }
+.orderSourceNode > .orderCode { margin-top: 0.4rem; color: #78a2de; font-family: "SFMono-Regular", Consolas, monospace; font-size: var(--showroom-label); }
 
 .orderDishField {
   position: absolute;
@@ -3009,6 +3076,7 @@
   .factoryExperience,
   .traceCanvas,
   .procurementCanvas,
+  .schedulingCanvas,
   .marginCanvas { right: 5.4vw; left: 5.4vw; }
   .factoryExperience { top: 24%; }
   .forecastDishes strong { font-size: 2.35vw; }

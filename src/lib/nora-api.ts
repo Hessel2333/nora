@@ -1,4 +1,13 @@
-import type { Bom, Customer, Product, ProductionDemand, SalesOrder } from "./types";
+import type {
+  Bom,
+  Customer,
+  Product,
+  ProductionBatch,
+  ProductionDemand,
+  ProductionWorkOrder,
+  SalesOrder,
+} from "./types";
+import { frontendAuditActor, getNoraRuntimeMode } from "./runtime-mode";
 
 export interface MaterialRequirements {
   orderId: string;
@@ -38,6 +47,7 @@ export interface ProductionReadiness {
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3100/api/v1";
+const auditActor = frontendAuditActor(getNoraRuntimeMode());
 
 export class NoraApiError extends Error {
   constructor(
@@ -103,15 +113,15 @@ export const noraApi = {
   },
 
   submitOrder(id: string) {
-    return request<SalesOrder>(`/orders/${id}/submit`, { method: "POST", body: JSON.stringify({ actor: "演示用户" }) });
+    return request<SalesOrder>(`/orders/${id}/submit`, { method: "POST", body: JSON.stringify({ actor: auditActor }) });
   },
 
   approveOrder(id: string, comment?: string) {
-    return request<SalesOrder>(`/orders/${id}/approve`, { method: "POST", body: JSON.stringify({ actor: "演示用户", comment }) });
+    return request<SalesOrder>(`/orders/${id}/approve`, { method: "POST", body: JSON.stringify({ actor: auditActor, comment }) });
   },
 
   returnOrder(id: string, comment: string) {
-    return request<SalesOrder>(`/orders/${id}/return`, { method: "POST", body: JSON.stringify({ actor: "演示用户", comment }) });
+    return request<SalesOrder>(`/orders/${id}/return`, { method: "POST", body: JSON.stringify({ actor: auditActor, comment }) });
   },
 
   materialRequirements(id: string) {
@@ -126,11 +136,88 @@ export const noraApi = {
     return request<ProductionDemand>(`/orders/${id}/production-demand`);
   },
 
+  productionDemands() {
+    return request<{ data: ProductionDemand[]; page: number; pageSize: number; total: number }>(
+      "/production-demands?pageSize=100",
+    );
+  },
+
+  productionBatches() {
+    return request<{ data: ProductionBatch[] }>("/production-batches");
+  },
+
+  createProductionBatch(
+    input: {
+      scheduledFor: string;
+      allocations: Array<{ productionDemandLineId: string; quantity: string }>;
+    },
+    idempotencyKey: string,
+  ) {
+    return request<ProductionBatch>("/production-batches", {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ ...input, actor: auditActor }),
+    });
+  },
+
+  confirmProductionBatch(id: string, revision: number, idempotencyKey: string) {
+    return request<ProductionBatch>(`/production-batches/${id}/confirm`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ revision, actor: auditActor }),
+    });
+  },
+
+  releaseProductionBatch(id: string, revision: number, idempotencyKey: string) {
+    return request<ProductionBatch>(`/production-batches/${id}/release`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ revision, actor: auditActor }),
+    });
+  },
+
+  workOrders() {
+    return request<{ data: ProductionWorkOrder[] }>("/work-orders");
+  },
+
   copyBomVersion(id: string, version: string, sourceVersionId?: string) {
     return request<Bom>(`/boms/${id}/versions`, { method: "POST", body: JSON.stringify({ version, sourceVersionId }) });
   },
 
-  publishBomVersion(versionId: string) {
-    return request<Bom>(`/boms/versions/${versionId}/publish`, { method: "POST", body: JSON.stringify({}) });
+  updateBomVersion(versionId: string, bom: Bom) {
+    return request<Bom>(`/boms/versions/${versionId}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        revision: bom.revision ?? 1,
+        outputQuantity: bom.outputQuantity,
+        outputUnit: bom.outputUnit,
+        operations: bom.operations.map((operation) => ({
+          code: operation.code,
+          name: operation.name,
+          kind: operation.kind,
+          sequence: operation.sequence,
+          workCenter: operation.workCenter,
+          durationMinutes: operation.durationMinutes,
+          waitMinutes: operation.waitMinutes,
+          temperatureMin: operation.temperatureMin,
+          temperatureMax: operation.temperatureMax,
+          instructions: operation.instructions,
+        })),
+        items: bom.items.map((item) => ({
+          componentProductId: item.componentId,
+          operationCode: item.operationCode,
+          netQuantity: item.netQuantity,
+          yieldRate: item.yieldRate,
+          unit: item.unit,
+        })),
+      }),
+    });
+  },
+
+  publishBomVersion(versionId: string, revision: number, effectiveAt?: string) {
+    return request<Bom>(`/boms/versions/${versionId}/publish`, {
+      method: "POST",
+      body: JSON.stringify({ revision, effectiveAt }),
+    });
   },
 };

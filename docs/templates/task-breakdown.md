@@ -17,6 +17,8 @@
 - [ ] Migration
 - [ ] Seed/Fixture
 - [ ] 数据升级和回滚影响
+- [ ] 从空库执行全量 migration
+- [ ] 历史数据迁移验证与恢复演练
 
 ## 后端纵向任务
 
@@ -42,6 +44,9 @@
 - [ ] 本地运行步骤
 - [ ] 验收截图或测试记录
 - [ ] `typecheck`、`lint`、`test`、`build`
+- [ ] `docs:check`、空库 migration、重复 seed、API smoke（适用时）
+- [ ] 浏览器桌面/移动/离线/权限/冲突验收（适用时）
+- [ ] PR 风险、证据、未决人工选择与回滚说明
 
 ## 明确不做
 

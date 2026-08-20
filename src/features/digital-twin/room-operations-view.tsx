@@ -3,7 +3,6 @@
 import ReactECharts from "echarts-for-react";
 import { Activity, CheckCircle2, Clock3, Gauge, Package, Radio } from "lucide-react";
 import { useMemo } from "react";
-import { Badge } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { getRoomOperationsProfile } from "./room-operations";
 import type { FactoryRoomSnapshot } from "./room-monitoring";
@@ -106,7 +105,7 @@ export function RoomOperationsView({ room }: { room: FactoryRoomSnapshot }) {
       </section> : null}
 
       <section className="rounded-xl border border-[#e2e7ef] bg-white p-4">
-        <div className="flex items-center justify-between gap-3"><div><h3 className="text-sm font-semibold text-[#243250]">{eventsHeading}</h3><p className="mt-1 text-[11px] text-[#7b879b]">{eventsDescription}</p></div><Badge tone="info">实时更新</Badge></div>
+        <div><h3 className="text-sm font-semibold text-[#243250]">{eventsHeading}</h3><p className="mt-1 text-[11px] text-[#7b879b]">{eventsDescription}</p></div>
         <div className="mt-4 space-y-0">
           {profile.events.map((event, index) => <div key={`${event.time}-${event.title}`} className="relative flex gap-3 pb-4 last:pb-0">
             {index < profile.events.length - 1 ? <span className="absolute left-[15px] top-8 h-[calc(100%-20px)] w-px bg-[#e1e7ef]" /> : null}

@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { OrderStatus, StatusTone, WorkOrderStatus, ZoneStatus } from "./types";
+import type { OrderStatus, SalesOrder, StatusTone, WorkOrderStatus, ZoneStatus } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -22,6 +22,13 @@ export const orderStatus: Record<OrderStatus, { label: string; tone: StatusTone 
 };
 export const orderStatusLabel = Object.fromEntries(Object.entries(orderStatus).map(([key, value]) => [key, value.label])) as Record<OrderStatus, string>;
 export const statusTone = Object.fromEntries(Object.entries(orderStatus).map(([key, value]) => [key, value.tone])) as Record<OrderStatus, StatusTone>;
+
+export const orderSourceLabel: Record<SalesOrder["source"], string> = {
+  客户下单: "客户下单",
+  手工录入: "手工录入",
+  AI预测: "销量预测",
+  Excel导入: "Excel 导入",
+};
 
 export const workOrderStatus: Record<WorkOrderStatus, { label: string; tone: StatusTone }> = {
   scheduled: { label: "已排程", tone: "neutral" },

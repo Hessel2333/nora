@@ -16,8 +16,8 @@ import {
   Route,
   Search,
   ShieldCheck,
-  Truck,
 } from "lucide-react";
+import { HelpTip } from "@/components/help-tip";
 import {
   Badge,
   Button,
@@ -54,20 +54,17 @@ export function ProductionPlansPage() {
   const workOrders = useNoraStore((state) => state.workOrders);
   const [line, setLine] = useState("全部产线");
   const averageProgress = Math.round(
-    workOrders.reduce((sum, workOrder) => sum + workOrder.progress, 0) /
-      workOrders.length,
+    workOrders.length === 0
+      ? 0
+      : workOrders.reduce((sum, workOrder) => sum + workOrder.progress, 0) /
+          workOrders.length,
   );
 
   return (
     <>
       <PageHeader
         title="生产计划"
-        actions={
-          <Button>
-            <Plus size={16} />
-            新建生产计划
-          </Button>
-        }
+        metadata={<HelpTip title="排程说明">当前排程用于体验计划查看，不会下达正式生产任务。</HelpTip>}
       />
       <div className="horizontal-snap -mx-4 mb-4 grid grid-flow-col auto-cols-[82%] gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:px-0 xl:grid-cols-4">
         <MetricCard
@@ -105,7 +102,7 @@ export function ProductionPlansPage() {
             <div>
               <h2 className="font-semibold text-[#1d2939]">产线甘特排程</h2>
               <p className="mt-0.5 text-xs text-[#667085]">
-                2026年7月14日 · 周二
+                当日班次
               </p>
             </div>
             <select
@@ -117,7 +114,7 @@ export function ProductionPlansPage() {
               <option>全部产线</option>
               <option>清洗线</option>
               <option>切配线</option>
-              <option>烹饪线</option>
+              <option>组配线</option>
               <option>包装线</option>
             </select>
           </div>
@@ -201,7 +198,7 @@ export function ProductionPlansPage() {
               {[
                 ["清洗线", 68],
                 ["切配线", 82],
-                ["烹饪线", 91],
+                ["组配线", 91],
                 ["包装线", 74],
               ].map(([name, value]) => (
                 <div key={name as string}>
@@ -223,7 +220,7 @@ export function ProductionPlansPage() {
               <div>
                 <b className="text-sm">2 项物料可能短缺</b>
                 <p className="mt-1 text-xs leading-5 text-[#667085]">
-                  鸡胸肉缺口 80kg，青椒缺口 32kg。建议优先处理烹饪线任务。
+                  鸡胸肉缺口 80kg，青椒缺口 32kg。建议优先复核切配与组配任务。
                 </p>
                 <Link
                   href="/production/materials"
@@ -321,12 +318,7 @@ export function WorkOrdersPage() {
     <>
       <PageHeader
         title="生产工单"
-        actions={
-          <Button>
-            <Plus size={16} />
-            下达工单
-          </Button>
-        }
+        metadata={<HelpTip title="工单说明">本页状态变更仅用于体验工单流程。</HelpTip>}
       />
       <Card className="overflow-hidden">
         <div className="flex gap-3 border-b border-[#e8edf3] p-4">
@@ -432,11 +424,11 @@ export function RoutingsPage() {
       <div className="grid gap-4 lg:grid-cols-3">
         {[
           [
-            "热菜标准路线",
-            ["原料清洗", "切配称重", "调味腌制", "智能烹饪", "冷却包装"],
+            "肉类前处理路线",
+            ["来料复核", "低温解冻", "修整切配", "低温腌制", "分装贴标"],
           ],
-          ["净配菜路线", ["清洗消毒", "切分加工", "称重质检", "气调包装"]],
-          ["凉菜标准路线", ["原料验收", "清洗切配", "调味拌制", "低温包装"]],
+          ["叶菜前处理路线", ["原料验收", "挑拣修整", "清洗沥水", "规格切配", "分装贴标"]],
+          ["配菜包组配路线", ["分区备料", "规格复核", "称重组配", "分隔封装", "冷藏暂存"]],
         ].map(([name, steps], j) => (
           <Card key={name as string} className="p-5">
             <div className="flex items-center justify-between">
@@ -471,18 +463,13 @@ export function MaterialsPage() {
     <>
       <PageHeader
         title="物料需求与领料"
-        actions={
-          <Button>
-            <Truck size={16} />
-            生成领料单
-          </Button>
-        }
+        metadata={<HelpTip title="物料需求说明">当前需求和库存用于体验物料核对，不会生成正式领料单。</HelpTip>}
       />
       <div className="grid gap-4 xl:grid-cols-[1fr_300px]">
         <Card className="overflow-hidden">
           <SectionTitle
             title="今日物料需求"
-            description="需求单 SC20260714-018 · 深圳中央工厂"
+            description="DEMO-PD-018 · 深圳中央工厂"
           />
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left">
@@ -528,10 +515,7 @@ export function MaterialsPage() {
         </Card>
         <Card className="p-5">
           <Layers3 className="text-[#1768f2]" />
-          <h2 className="mt-3 font-semibold">展开口径</h2>
-          <p className="mt-2 text-sm leading-6 text-[#6e7b93]">
-            按 4 张已审核订单、3 个成品 BOM 聚合。毛料需求已包含出成率损耗。
-          </p>
+          <div className="mt-3 flex items-center gap-1"><h2 className="font-semibold">需求汇总</h2><HelpTip title="汇总口径">按 4 张已审核订单、3 个成品配方聚合，毛料需求已包含出成率损耗。</HelpTip></div>
           <div className="mt-5 rounded-xl bg-[#f5f7fa] p-4 text-sm">
             <p className="flex justify-between">
               <span>净需求</span>
@@ -556,7 +540,7 @@ export function OutputPage() {
   );
   return (
     <>
-      <PageHeader title="产出与完工" />
+      <PageHeader title="产出与完工" metadata={<HelpTip title="产出说明">当前记录用于体验完工查看，不会写入正式库存或质量记录。</HelpTip>} />
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="p-5 lg:col-span-2">
           <h2 className="font-semibold">今日产出记录</h2>
@@ -572,7 +556,7 @@ export function OutputPage() {
                 <div className="flex-1">
                   <b>{wo.productName}</b>
                   <p className="text-xs text-[#8591a4]">
-                    批次 PL20260714-{wo.id.slice(-3)} · {wo.code}
+                    DEMO-PL-{wo.id.slice(-3)} · {wo.code}
                   </p>
                 </div>
                 <b>
@@ -585,13 +569,12 @@ export function OutputPage() {
         </Card>
         <Card className="p-5">
           <ShieldCheck size={21} className="text-[#08a879]" />
-          <h2 className="mt-3 font-semibold">结案检查</h2>
+          <h2 className="mt-3 font-semibold">记录状态</h2>
           <div className="mt-4 space-y-3">
             {[
-              "实际投料已登记",
-              "产出批次已生成",
-              "现场质检已完成",
-              "库存流水已写入",
+              "产出数量已记录",
+              "批次信息已记录",
+              "质量结果已记录",
             ].map((x) => (
               <p key={x} className="flex items-center gap-2 text-sm">
                 <CheckCircle2 size={15} className="text-[#08a879]" />
@@ -599,9 +582,6 @@ export function OutputPage() {
               </p>
             ))}
           </div>
-          <Button variant="success" className="mt-5 w-full">
-            批量完工结案
-          </Button>
         </Card>
       </div>
     </>

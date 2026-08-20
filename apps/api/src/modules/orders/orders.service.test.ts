@@ -35,6 +35,31 @@ const pendingOrder = {
   events: [],
 } as const;
 
+const recipeSnapshot = {
+  schemaVersion: 1 as const,
+  capturedAt: "2026-08-18T08:00:00.000Z",
+  asAt: pendingOrder.deliveryAt.toISOString(),
+  product: {
+    id: pendingOrder.lines[0].productId,
+    code: pendingOrder.lines[0].productCode,
+    name: pendingOrder.lines[0].productName,
+    type: "finished" as const,
+    unit: pendingOrder.lines[0].unit,
+    unitCost: 12,
+  },
+  bomVersion: {
+    id: "40000000-0000-4000-8000-000000000003",
+    bomId: "30000000-0000-4000-8000-000000000003",
+    bomCode: "BOM-CP0002",
+    version: "V1.0",
+    effectiveAt: "2026-08-01T00:00:00.000Z",
+    effectiveTo: null,
+    outputQuantity: 1,
+    outputUnit: "份",
+  },
+  components: [],
+};
+
 function createService(updateCount = 1) {
   const transactionClient = {
     salesOrder: {
@@ -43,21 +68,19 @@ function createService(updateCount = 1) {
       findUniqueOrThrow: vi.fn().mockResolvedValue({ ...pendingOrder, status: "approved" }),
     },
     salesOrderEvent: { create: vi.fn().mockResolvedValue({}) },
-    bom: {
-      findMany: vi.fn().mockResolvedValue([
-        {
-          productId: pendingOrder.lines[0].productId,
-          versions: [{ id: "40000000-0000-4000-8000-000000000003", version: "V1.0" }],
-        },
-      ]),
-    },
     documentNumber: { upsert: vi.fn().mockResolvedValue({ currentValue: 1 }) },
-    productionDemand: { create: vi.fn().mockResolvedValue({}) },
+    productionDemand: {
+      create: vi.fn().mockResolvedValue({}),
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
   };
   const prisma = {
     $transaction: vi.fn(async (callback: (tx: typeof transactionClient) => unknown) => callback(transactionClient)),
   };
-  const service = new OrdersService(prisma as never, {} as never);
+  const boms = {
+    captureRecipeSnapshot: vi.fn().mockResolvedValue(recipeSnapshot),
+  };
+  const service = new OrdersService(prisma as never, boms as never);
   return { service, transactionClient };
 }
 
@@ -92,11 +115,27 @@ describe("OrdersService.approve", () => {
               requiredQuantity: pendingOrder.lines[0].quantity,
               selectedBomVersionId: "40000000-0000-4000-8000-000000000003",
               bomVersionSnapshot: "V1.0",
+              recipeSnapshot,
             }),
           ],
         },
       }),
     });
+  });
+
+  it("returns the existing approved order without creating a second demand", async () => {
+    const { service, transactionClient } = createService();
+    transactionClient.salesOrder.findFirst.mockResolvedValue({
+      ...pendingOrder,
+      status: "approved",
+    } as never);
+    transactionClient.productionDemand.findUnique.mockResolvedValue({ id: "demand-1" } as never);
+
+    const result = await service.approve(pendingOrder.id, { actor: "审核员" });
+
+    expect(result.status).toBe("approved");
+    expect(transactionClient.salesOrder.updateMany).not.toHaveBeenCalled();
+    expect(transactionClient.productionDemand.create).not.toHaveBeenCalled();
   });
 
   it("does not create a demand when optimistic locking loses the update", async () => {

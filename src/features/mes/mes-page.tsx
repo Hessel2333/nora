@@ -11,12 +11,13 @@ const exceptionTypes = ["设备故障", "物料异常", "质量异常", "人员�
 
 export function MesQueuePage() {
   const orders = useNoraStore((state) => state.workOrders);
+  const firstOrder = orders.find((workOrder) => workOrder.status !== "closed");
 
   return <>
     <div className="mb-6">
-      <h1 className="text-2xl font-semibold tracking-[-0.035em] text-[#101828]">烹饪工位</h1>
+      <h1 className="text-2xl font-semibold tracking-[-0.035em] text-[#101828]">净配工位</h1>
     </div>
-    <button className="focus-ring mb-5 flex h-20 w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#9bb9e5] bg-[#edf5ff] text-lg font-semibold text-[#0a68dc] hover:border-[#6d9ee6] hover:bg-[#e7f1ff] active:bg-[#deebfc]"><QrCode size={26} />扫描工单开始</button>
+    {firstOrder ? <Link href={`/mes/stations/${firstOrder.id}`} className="focus-ring mb-5 flex h-20 w-full items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#9bb9e5] bg-[#edf5ff] text-lg font-semibold text-[#0a68dc] hover:border-[#6d9ee6] hover:bg-[#e7f1ff] active:bg-[#deebfc]"><QrCode size={26} />扫码进入首个工单</Link> : null}
     <div className="grid gap-4 md:grid-cols-2">
       {orders.filter((workOrder) => workOrder.status !== "closed").map((workOrder) => <Link key={workOrder.id} href={`/mes/stations/${workOrder.id}`} className="focus-ring rounded-2xl"><Card className="h-full p-5 transition duration-200 hover:-translate-y-0.5 hover:border-[#a9c5ef] hover:shadow-[0_12px_30px_rgba(37,67,105,.08)]"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="font-mono text-xs font-semibold text-[#0a68dc]">{workOrder.code}</p><h2 className="mt-2 truncate text-xl font-semibold tracking-[-0.025em] text-[#101828]">{workOrder.productName}</h2></div><Badge tone={workOrderStatus[workOrder.status].tone}>{workOrderStatus[workOrder.status].label}</Badge></div><div className="mt-5 grid grid-cols-3 gap-3 rounded-xl bg-[#f4f7fa] p-4"><div><span className="text-xs text-[#667085]">计划数量</span><b className="mt-1 block tabular-nums">{formatNumber(workOrder.plannedQuantity)} {workOrder.unit}</b></div><div><span className="text-xs text-[#667085]">计划时间</span><b className="mt-1 block tabular-nums">{workOrder.startAt}</b></div><div><span className="text-xs text-[#667085]">优先级</span><b className={`mt-1 block ${workOrder.priority === "high" ? "text-[#d94545]" : ""}`}>{workOrder.priority === "high" ? "紧急" : "正常"}</b></div></div><Progress value={workOrder.progress} className="mt-5 h-2" tone={workOrder.progress === 100 ? "success" : "info"} /><div className="mt-2 flex justify-between text-xs text-[#667085]"><span>{workOrder.line}</span><span className="tabular-nums">{workOrder.progress}%</span></div></Card></Link>)}
     </div>
@@ -30,6 +31,8 @@ export function MesStationPage({ id }: { id: string }) {
   const [selectedException, setSelectedException] = useState<string | null>(null);
   const [scanComplete, setScanComplete] = useState(false);
   const [reported, setReported] = useState(false);
+  const [qualitySaved, setQualitySaved] = useState(false);
+  if (!workOrder) return null;
   const status = workOrderStatus[workOrder.status];
 
   const changeStatus = (nextStatus: "in_progress" | "paused" | "completed") => transition(workOrder.id, nextStatus);
@@ -44,7 +47,7 @@ export function MesStationPage({ id }: { id: string }) {
   };
 
   return <>
-    {reported && <div role="status" className="mb-4 flex items-center justify-between gap-4 rounded-[14px] border border-[#b9e5d7] bg-[#eefaf6] px-4 py-3 text-sm text-[#08775b]"><span className="flex items-center gap-2 font-medium"><CheckCircle2 size={17} />{selectedException}已上报，生产主管将收到提醒</span><button onClick={() => setReported(false)} className="focus-ring rounded-md px-2 py-1 text-xs font-semibold hover:bg-white/70">关闭</button></div>}
+    {reported && <div role="status" className="mb-4 flex items-center justify-between gap-4 rounded-[14px] border border-[#b9e5d7] bg-[#eefaf6] px-4 py-3 text-sm text-[#08775b]"><span className="flex items-center gap-2 font-medium"><CheckCircle2 size={17} />{selectedException}已记录</span><button onClick={() => setReported(false)} className="focus-ring rounded-md px-2 py-1 text-xs font-semibold hover:bg-white/70">关闭</button></div>}
 
     <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div><p className="font-mono text-sm font-semibold text-[#0a68dc]">{workOrder.code}</p><h1 className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-[#101828]">{workOrder.productName}</h1><p className="mt-1 text-sm text-[#667085]">{workOrder.line} · 负责人 {workOrder.owner}</p></div>
@@ -58,7 +61,7 @@ export function MesStationPage({ id }: { id: string }) {
           <div className="mt-5 grid grid-cols-3 gap-3">
             <div className="rounded-2xl bg-[#edf4ff] p-4 sm:p-5"><span className="text-xs text-[#56749e]">计划数量</span><b className="mt-1 block text-2xl tabular-nums text-[#154d9e]">{formatNumber(workOrder.plannedQuantity)}</b><span className="text-xs">{workOrder.unit}</span></div>
             <div className="rounded-2xl bg-[#e9f8f3] p-4 sm:p-5"><span className="text-xs text-[#527d70]">已完成</span><b className="mt-1 block text-2xl tabular-nums text-[#08775b]">{formatNumber(workOrder.completedQuantity)}</b><span className="text-xs">{workOrder.unit}</span></div>
-            <div className="rounded-2xl bg-[#fff4df] p-4 sm:p-5"><span className="text-xs text-[#846a42]">完成率</span><b className="mt-1 block text-2xl tabular-nums text-[#a96600]">{workOrder.progress}%</b><span className="text-xs">实时</span></div>
+            <div className="rounded-2xl bg-[#fff4df] p-4 sm:p-5"><span className="text-xs text-[#846a42]">完成率</span><b className="mt-1 block text-2xl tabular-nums text-[#a96600]">{workOrder.progress}%</b></div>
           </div>
           <Progress value={workOrder.progress} className="mt-5 h-3" tone="success" />
         </Card>
@@ -79,12 +82,12 @@ export function MesStationPage({ id }: { id: string }) {
       </div>
 
       <div className="space-y-5">
-        <Card className="p-5"><h2 className="font-semibold text-[#1d2939]">扫码投料</h2><button onClick={() => setScanComplete(true)} className="focus-ring mt-4 flex h-32 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#9ebbe5] bg-[#edf5ff] text-[#0a68dc] hover:border-[#6d9ee6] hover:bg-[#e7f1ff]"><ScanLine size={34} /><b>扫描物料批次</b></button>{scanComplete && <div role="status" className="mt-3 rounded-xl bg-[#e9f8f3] p-4"><p className="flex items-center gap-2 font-semibold text-[#08785b]"><CheckCircle2 size={17} />批次已识别</p><p className="mt-1 text-xs leading-5 text-[#4d7468]">冷冻鸡胸肉 · PL20260713-028 · 120.000kg</p></div>}</Card>
-        <Card className="p-5"><h2 className="font-semibold text-[#1d2939]">现场质量</h2><div className="mt-4 space-y-3">{[["中心温度", "96.2°C"], ["外观检查", "合格"], ["净含量", "502g"]].map(([label, value]) => <div key={label} className="flex justify-between rounded-xl bg-[#f5f7fa] p-3 text-sm"><span className="text-[#667085]">{label}</span><b className="tabular-nums">{value}</b></div>)}</div><Button variant="secondary" className="mt-4 w-full"><ClipboardCheck size={16} />录入质检结果</Button></Card>
+        <Card className="p-5"><h2 className="font-semibold text-[#1d2939]">扫码投料</h2><button onClick={() => setScanComplete(true)} className="focus-ring mt-4 flex h-32 w-full flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#9ebbe5] bg-[#edf5ff] text-[#0a68dc] hover:border-[#6d9ee6] hover:bg-[#e7f1ff]"><ScanLine size={34} /><b>扫描物料批次</b></button>{scanComplete && <div role="status" className="mt-3 rounded-xl bg-[#e9f8f3] p-4"><p className="flex items-center gap-2 font-semibold text-[#08785b]"><CheckCircle2 size={17} />物料批次已识别</p><p className="mt-1 text-xs leading-5 text-[#4d7468]">冷冻鸡胸肉 · DEMO-BATCH-028 · 120.000kg</p></div>}</Card>
+        <Card className="p-5"><h2 className="font-semibold text-[#1d2939]">现场质量</h2><div className="mt-4 space-y-3">{[["中心温度", "3.2°C"], ["外观检查", "合格"], ["净含量", "502g"]].map(([label, value]) => <div key={label} className="flex justify-between rounded-xl bg-[#f5f7fa] p-3 text-sm"><span className="text-[#667085]">{label}</span><b className="tabular-nums">{value}</b></div>)}</div><Button variant="secondary" className="mt-4 w-full" onClick={() => setQualitySaved(true)}><ClipboardCheck size={16} />记录质检结果</Button>{qualitySaved ? <p role="status" className="mt-3 text-xs font-medium text-[#08775b]">质检结果已记录。</p> : null}</Card>
       </div>
     </div>
 
-    <Modal open={exceptionOpen} onOpenChange={setExceptionOpen} title="上报生产异常" description="选择异常类型后，系统会立即通知生产主管。" footer={<><Button variant="secondary" onClick={() => setExceptionOpen(false)}>取消</Button><Button variant="danger" disabled={!selectedException} onClick={confirmException}>确认上报</Button></>}>
+    <Modal open={exceptionOpen} onOpenChange={setExceptionOpen} title="记录异常" footer={<><Button variant="secondary" onClick={() => setExceptionOpen(false)}>取消</Button><Button variant="danger" disabled={!selectedException} onClick={confirmException}>确认记录</Button></>}>
       <div role="radiogroup" aria-label="异常类型" className="grid grid-cols-2 gap-3">
         {exceptionTypes.map((type) => <button key={type} role="radio" aria-checked={selectedException === type} onClick={() => setSelectedException(type)} className={`focus-ring rounded-xl border p-4 text-left text-sm font-medium transition ${selectedException === type ? "border-[#e5484d] bg-[#fff3f3] text-[#b4232a] shadow-[0_0_0_3px_rgba(229,72,77,.08)]" : "border-[#dfe5ed] hover:border-[#e28a8d] hover:bg-[#fff8f8]"}`}><TriangleAlert size={20} className="mb-3 text-[#e5484d]" />{type}</button>)}
       </div>

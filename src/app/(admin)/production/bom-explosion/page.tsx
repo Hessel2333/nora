@@ -1,5 +1,5 @@
-import { BomExplosionPage } from "@/features/mrp/bom-explosion-page";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <BomExplosionPage />;
+  redirect("/catalog/boms?view=structure");
 }

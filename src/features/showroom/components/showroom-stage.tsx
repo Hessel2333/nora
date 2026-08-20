@@ -6,6 +6,7 @@ import { ForecastScene } from "../scenes/forecast-scene";
 import { OrderScene } from "../scenes/order-scene";
 import { BomScene } from "../scenes/bom-scene";
 import { MrpScene } from "../scenes/mrp-scene";
+import { SchedulingScene } from "../scenes/scheduling-scene";
 import { ProductionScene } from "../scenes/production-scene";
 import { TraceabilityScene } from "../scenes/traceability-scene";
 import { ProcurementScene } from "../scenes/procurement-scene";
@@ -62,6 +63,8 @@ export function ShowroomStage({
       return <BomScene progress={sceneProgress} autoAdvance={definition.id === scene.id && autoAdvance} onInteract={onInteract} />;
     case "mrp":
       return <MrpScene progress={sceneProgress} />;
+    case "scheduling":
+      return <SchedulingScene progress={sceneProgress} />;
     case "production":
       return <ProductionScene progress={definition.id === scene.id ? playbackProgress : sceneProgress} rooms={rooms} workOrders={workOrders} onInteract={onInteract} />;
     case "traceability":

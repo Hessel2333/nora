@@ -12,7 +12,7 @@ export function MrpScene({ progress }: { progress: number }) {
 
   return (
     <section className={`${styles.scene} ${styles.mrpScene}`}>
-      <SceneTitle eyebrow="04 · MRP ENGINE" title="计划不是黑盒，每一步都有依据" description="需求、库存、在途与安全库存持续进入同一台实时计划引擎。" />
+      <SceneTitle eyebrow="04 · MRP ENGINE" title="计划不是黑盒，每一步都有依据" description="示例需求、库存、在途与安全库存进入同一套可解释计划流程。" />
 
       <div className={styles.mrpLiveCanvas} style={{ "--engine-progress": engineProgress } as CSSProperties}>
         <div className={styles.mrpReadings}>
@@ -29,7 +29,7 @@ export function MrpScene({ progress }: { progress: number }) {
           <PackageSearch size={30} />
           <small>MRP · LIVE</small>
           <strong>{calculation.steps[calculationIndex].toFixed(1)}<em>kg</em></strong>
-          <p>{calculationIndex === calculation.steps.length - 1 ? "采购缺口" : "实时净算中"}</p>
+          <p>{calculationIndex === calculation.steps.length - 1 ? "采购缺口" : "演示净算中"}</p>
         </div>
 
         <div className={`${styles.mrpRecommendation} ${progress > 0.52 ? styles.isVisible : ""}`}>
@@ -44,7 +44,7 @@ export function MrpScene({ progress }: { progress: number }) {
         </div>
 
         <div className={`${styles.mrpScheduleRail} ${progress > 0.64 ? styles.isVisible : ""}`}>
-          <header><span>由交期向前自动排程</span><strong>11:00 装车</strong></header>
+          <header><span>鸡胸肉工艺排程</span><strong>09:20 净料称量</strong></header>
           <div>
             {SHOWROOM_MRP.timeline.map((item, index) => (
               <span key={item.time} className={progress > 0.61 + index * 0.035 ? styles.isVisible : ""}>

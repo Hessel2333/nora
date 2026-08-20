@@ -18,6 +18,7 @@ import {
   ShoppingCart,
   Upload,
 } from "lucide-react";
+import { HelpTip } from "@/components/help-tip";
 import {
   Badge,
   Button,
@@ -37,6 +38,7 @@ import type { SalesOrder } from "@/lib/types";
 import {
   formatCurrency,
   formatNumber,
+  orderSourceLabel,
   orderStatusLabel,
   statusTone,
 } from "@/lib/utils";
@@ -56,6 +58,7 @@ const totalOf = (order: SalesOrder) =>
 
 export function OrdersPage() {
   const orders = useNoraStore((state) => state.orders);
+  const mode = useNoraStore((state) => state.mode);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const rows = useMemo(
@@ -76,25 +79,28 @@ export function OrdersPage() {
         title="订单中心"
         actions={
           <>
-            <ButtonLink href="/orders/import" variant="secondary">
-              <Upload size={16} />
-              导入订单
-            </ButtonLink>
-            <ButtonLink href="/orders/new">
-              <Plus size={16} />
-              新建订单
-            </ButtonLink>
+            {mode === "demo" && (
+              <ButtonLink href="/orders/import" variant="secondary">
+                <Upload size={16} />
+                导入订单
+              </ButtonLink>
+            )}
+            {mode !== "production" && (
+              <ButtonLink href="/orders/new">
+                <Plus size={16} />
+                新建订单
+              </ButtonLink>
+            )}
           </>
         }
       />
 
       <div className="horizontal-snap -mx-4 mb-4 grid grid-flow-col auto-cols-[82%] gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:px-0 xl:grid-cols-4">
         <MetricCard
-          label="今日订单"
+          label="订单总数"
           value={String(orders.length)}
           suffix="单"
           icon={ShoppingCart}
-          change="较昨日 +8.2%"
         />
         <MetricCard
           label="待审核"
@@ -279,7 +285,7 @@ export function OrdersPage() {
                         {formatCurrency(totalOf(order))}
                       </td>
                       <td className="px-5 py-4">
-                        <Badge>{order.source}</Badge>
+                        <Badge>{orderSourceLabel[order.source]}</Badge>
                       </td>
                       <td className="px-5 py-4">
                         <Badge tone={statusTone[order.status]}>
@@ -351,7 +357,7 @@ export function OrderDetailPage({ id }: { id: string }) {
         <Badge tone={statusTone[order.status]}>
           {orderStatusLabel[order.status]}
         </Badge>
-        <span className="text-xs text-[#8792a6]">来源：{order.source}</span>
+        <span className="text-xs text-[#8792a6]">来源：{orderSourceLabel[order.source]}</span>
       </div>
       <div className="grid gap-4 xl:grid-cols-[1fr_340px]">
         <div className="space-y-4">
@@ -376,7 +382,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                       <td className="px-5 py-4">
                         <b>{l.productName}</b>
                         <p className="text-[11px] text-[#8a95a8]">
-                          {l.productId}
+                          {l.productCode ?? l.productId}
                         </p>
                       </td>
                       <td className="px-5 py-4">
@@ -421,7 +427,7 @@ export function OrderDetailPage({ id }: { id: string }) {
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-xl bg-[#f4f7fb] p-4">
                   <p className="text-xs text-[#8490a4]">需求单</p>
-                  <b className="mt-1 block">SC20260714-018</b>
+                  <b className="mt-1 block">DEMO-PD-018</b>
                 </div>
                 <div className="rounded-xl bg-[#f4f7fb] p-4">
                   <p className="text-xs text-[#8490a4]">需求数量</p>
@@ -545,18 +551,24 @@ export function NewOrderPage() {
   );
   const add = useNoraStore((s) => s.addOrder);
   const [saved, setSaved] = useState(false);
-  const save = () => {
+  const defaultDelivery = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    return `${date.toISOString().slice(0, 10)}T11:30`;
+  }, []);
+  const save = async () => {
     const c = customers[0],
       p = products[0];
-    add({
+    if (!c || !p) return;
+    await add({
       id: `o-${Date.now()}`,
-      code: `SO20260714${String(Date.now()).slice(-4)}`,
+      code: `DRAFT-${String(Date.now()).slice(-6)}`,
       customerId: c.id,
       customerName: c.name,
-      deliveryAt: "2026-07-16 11:30",
+      deliveryAt: defaultDelivery.replace("T", " "),
       status: "pending",
       source: "手工录入",
-      createdAt: "2026-07-14 10:20",
+      createdAt: new Date().toISOString(),
       contact: c.contact,
       phone: c.phone,
       address: c.address,
@@ -602,7 +614,7 @@ export function NewOrderPage() {
             <input
               className={inputClass}
               type="datetime-local"
-              defaultValue="2026-07-16T11:30"
+              defaultValue={defaultDelivery}
             />
           </Field>
           <Field label="商品" required>
@@ -621,7 +633,7 @@ export function NewOrderPage() {
             <select className={inputClass}>
               <option>手工录入</option>
               <option>客户下单</option>
-              <option>AI预测</option>
+              <option value="AI预测">销量预测</option>
             </select>
           </Field>
           <Field label="备注">
@@ -632,7 +644,7 @@ export function NewOrderPage() {
           <ButtonLink href="/orders" variant="secondary">
             取消
           </ButtonLink>
-          <Button onClick={save}>
+          <Button onClick={() => void save()}>
             <Send size={16} />
             保存并提交审核
           </Button>
@@ -648,12 +660,7 @@ export function ImportOrdersPage() {
     <>
       <PageHeader
         title="导入销售订单"
-        actions={
-          <Button variant="secondary">
-            <Download size={16} />
-            下载模板
-          </Button>
-        }
+        metadata={<HelpTip title="导入说明">当前流程用于体验文件校验，不会读取或写入正式业务数据。</HelpTip>}
       />
       <Card className="mx-auto max-w-3xl p-6">
         {!done ? (
@@ -665,7 +672,7 @@ export function ImportOrdersPage() {
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#eaf2ff] text-[#1768f2]">
                 <FileSpreadsheet size={26} />
               </span>
-              <b className="mt-4">选择或拖入 Excel 文件</b>
+              <b className="mt-4">选择示例文件</b>
               <p className="mt-1 text-xs text-[#8390a5]">
                 支持 .xlsx，单次最多 2,000 行
               </p>
@@ -689,7 +696,7 @@ export function ImportOrdersPage() {
               共 38 行，识别 12 个客户、6 个商品，无重复订单号。
             </p>
             <ButtonLink href="/orders" className="mt-6">
-              确认导入并返回
+              返回订单中心
             </ButtonLink>
           </div>
         )}
@@ -761,12 +768,7 @@ export function ReconciliationPage() {
     <>
       <PageHeader
         title="订单对账"
-        actions={
-          <Button variant="secondary">
-            <Download size={16} />
-            导出对账单
-          </Button>
-        }
+        metadata={<HelpTip title="对账说明">当前操作用于体验对账流程，不会形成正式业务记录。</HelpTip>}
       />
       <Card className="overflow-hidden">
         {orders.map((o) => (

@@ -158,7 +158,7 @@ export function RoomMonitorDialog({ room, open, onOpenChange }: {
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-bold tracking-[0.09em] text-[#7d899e]">{room.id}</span>
                 <Badge tone={status.tone}>{status.label}</Badge>
-                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#078663]"><Radio size={12} />实时监测</span>
+                <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#078663]"><Radio size={12} />监测数据</span>
               </div>
               <Dialog.Title className="truncate text-lg font-semibold tracking-[-0.02em] text-[#17213d] sm:text-xl">{room.name}运行详情</Dialog.Title>
               <Dialog.Description className="mt-1 text-xs text-[#7c889e]">任务、环境、设备与异常记录</Dialog.Description>
@@ -198,7 +198,7 @@ export function RoomMonitorDialog({ room, open, onOpenChange }: {
                 </section>
 
                 <section className="rounded-xl border border-[#dfe9f7] bg-[#f4f8ff] p-4">
-                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[#405274]">传感器 {profile.sensorName}</span><Badge tone="success">在线</Badge></div>
+                  <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold text-[#405274]">传感器 {profile.sensorName}</span><Badge tone="warning">在线</Badge></div>
                   <p className="mt-2 text-[11px] text-[#75839a]">每 {profile.samplingInterval}采样 · 最近同步 {room.updatedAt}</p>
                 </section>
               </aside>

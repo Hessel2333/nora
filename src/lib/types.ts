@@ -23,12 +23,43 @@ export interface Product {
 export interface BomItem {
   id: string;
   componentId: string;
+  componentCode?: string;
+  operationId?: string;
+  operationCode: string;
   name: string;
+  type?: ProductType;
   unit: string;
   netQuantity: number;
   yieldRate: number;
   unitCost: number;
   level: number;
+}
+
+export type BomOperationKind = "receive" | "wash" | "cut" | "marinate" | "mix" | "cool" | "pack" | "quality";
+
+export interface BomOperation {
+  id: string;
+  code: string;
+  name: string;
+  kind: BomOperationKind;
+  sequence: number;
+  workCenter?: string;
+  durationMinutes: number;
+  waitMinutes: number;
+  temperatureMin?: number;
+  temperatureMax?: number;
+  instructions?: string;
+}
+
+export type BomVersionValidityState = "draft" | "scheduled" | "current" | "historical";
+
+export interface BomVersionEvent {
+  id: string;
+  type: "created" | "updated" | "published" | "superseded" | "retired";
+  actor: string;
+  revision: number;
+  effectiveAt: string | null;
+  createdAt: string;
 }
 
 export interface Bom {
@@ -42,15 +73,28 @@ export interface Bom {
   outputQuantity: number;
   outputUnit: string;
   status: "effective" | "draft" | "retired";
+  validityState?: BomVersionValidityState;
   effectiveAt: string;
+  effectiveTo?: string | null;
   revision?: number;
+  operations: BomOperation[];
   items: BomItem[];
   versions?: Array<{
     id: string;
     version: string;
+    previousVersion?: string;
+    outputQuantity?: number;
+    outputUnit?: string;
     status: "effective" | "draft" | "retired";
+    validityState?: BomVersionValidityState;
     effectiveAt: string | null;
+    effectiveTo?: string | null;
+    publishedAt?: string | null;
     revision: number;
+    operationCount?: number;
+    operations?: BomOperation[];
+    items?: BomItem[];
+    events?: BomVersionEvent[];
   }>;
 }
 
@@ -109,8 +153,115 @@ export interface ProductionDemandLine {
   requiredQuantity: number;
   unit: string;
   bomReady: boolean;
+  snapshotComplete: boolean;
+  snapshotSchemaVersion?: number;
+  processStepCount: number;
+  allocatedQuantity?: string;
+  remainingQuantity?: string;
   selectedBomVersionId?: string;
   selectedBomVersion?: string;
+}
+
+export type ProductionBatchStatus =
+  | "draft"
+  | "confirmed"
+  | "released"
+  | "running"
+  | "paused"
+  | "awaiting_quality"
+  | "completed"
+  | "exception"
+  | "cancelled";
+
+export interface ProductionBatch {
+  id: string;
+  code: string;
+  factoryCode: string;
+  factoryName: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  plannedQuantity: string;
+  unit: string;
+  selectedBomVersionId: string;
+  bomVersionSnapshot: string;
+  snapshotSchemaVersion?: number;
+  processStepCount: number;
+  releaseReady: boolean;
+  scheduledFor: string;
+  status: ProductionBatchStatus;
+  revision: number;
+  createdBy: string;
+  createdAt: string;
+  workOrder?: ProductionWorkOrder | null;
+  allocations: Array<{
+    id: string;
+    productionDemandLineId: string;
+    productionDemandId: string;
+    productionDemandCode: string;
+    salesOrderId: string;
+    salesOrderCode: string;
+    customerName: string;
+    allocatedQuantity: string;
+  }>;
+  events: Array<{
+    id: string;
+    type: "created" | "confirmed" | "released" | "cancelled" | "status_changed";
+    actor: string;
+    revision: number;
+    createdAt: string;
+  }>;
+}
+
+export type ProductionWorkOrderStatus =
+  | "pending"
+  | "running"
+  | "paused"
+  | "completed"
+  | "exception"
+  | "cancelled";
+
+export interface ProductionWorkOrder {
+  id: string;
+  code: string;
+  productionBatchId: string;
+  productionBatchCode: string;
+  factoryCode: string;
+  factoryName: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  plannedQuantity: string;
+  unit: string;
+  selectedBomVersionId: string;
+  bomVersionSnapshot: string;
+  snapshotSchemaVersion?: number;
+  scheduledStartAt: string;
+  workCenter: string;
+  status: ProductionWorkOrderStatus;
+  revision: number;
+  createdBy: string;
+  createdAt: string;
+  operations: Array<{
+    code: string;
+    name: string;
+    kind: BomOperationKind;
+    sequence: number;
+    workCenter: string | null;
+    durationMinutes: number;
+    waitMinutes: number;
+    temperatureMin: number | null;
+    temperatureMax: number | null;
+    instructions: string | null;
+  }>;
+  events: Array<{
+    id: string;
+    type: string;
+    actor: string;
+    status: ProductionWorkOrderStatus;
+    revision: number;
+    createdAt: string;
+  }>;
 }
 
 export interface ProductionDemand {
@@ -123,6 +274,12 @@ export interface ProductionDemand {
   status: ProductionDemandStatus;
   approvedAt: string;
   createdAt: string;
+  salesOrder?: {
+    id: string;
+    code: string;
+    customerName: string;
+    deliveryAt: string;
+  };
   lines: ProductionDemandLine[];
   lineCount: number;
   readyLineCount: number;

@@ -67,7 +67,7 @@ export function ProductionScene({
   return (
     <section className={`${styles.scene} ${styles.productionScene}`}>
       <SceneTitle
-        eyebrow="05 · LIVE FACTORY"
+        eyebrow="07 · LIVE FACTORY"
         title="这一刻，工厂正在发生什么？"
         description="每一个订单、批次和工序，都可以被精确追踪。"
       />
@@ -76,7 +76,7 @@ export function ProductionScene({
         <div className={styles.factoryMapSurface} data-active-room={selectedId}>
           <div className={styles.factoryMapMeta}>
             <span><i /> 净配菜工厂</span>
-            <small>CAD 房间状态 · 实时数据</small>
+            <small>CAD 房间状态 · 演示数据</small>
           </div>
           <div className={styles.factoryMapViewport}>
             <FactorySchematic
@@ -110,8 +110,8 @@ export function ProductionScene({
             <span><MapPin size={15} /><small>现场负责人</small><strong>{selectedRoom?.owner}</strong></span>
           </div>
           <div className={styles.realWorldWindow}>
-            <div>
-              {selectedCamera ? <Image key={selectedCamera.id} src={selectedCamera.poster} alt={`${selectedRoom?.id} ${selectedRoom?.name}实时画面`} fill sizes="320px" /> : null}
+            <div style={{ position: "relative" }}>
+              {selectedCamera ? <Image key={selectedCamera.id} src={selectedCamera.poster} alt={`${selectedRoom?.id} ${selectedRoom?.name}演示画面`} fill sizes="320px" /> : null}
               <span><i /> LIVE · {selectedRoom?.id}</span>
             </div>
             <p><span>当前工单 <strong>{liveCounts.workOrders}</strong></span><span>当前人员 <strong>{liveCounts.staff}</strong></span><span>区域温度 <strong>{selectedRoom?.temperature}</strong></span></p>

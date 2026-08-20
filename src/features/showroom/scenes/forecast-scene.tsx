@@ -14,7 +14,7 @@ const chartPoint = (value: number, index: number, values: number[]) => {
 };
 
 export function ForecastScene({ progress, onInteract }: { progress: number; onInteract: () => void }) {
-  const [selectedStoreId, setSelectedStoreId] = useState(FORECAST_SCENARIO.stores[2].id);
+  const [selectedStoreId, setSelectedStoreId] = useState(FORECAST_SCENARIO.stores[0].id);
   const selectedStore = useMemo(
     () => FORECAST_SCENARIO.stores.find((store) => store.id === selectedStoreId) ?? FORECAST_SCENARIO.stores[0],
     [selectedStoreId],
@@ -24,7 +24,7 @@ export function ForecastScene({ progress, onInteract }: { progress: number; onIn
 
   return (
     <section className={`${styles.scene} ${styles.forecastScene}`}>
-      <SceneTitle eyebrow="01 · FORECAST" title="订单还没来，Nora 已经开始准备" description="从历史销量、门店趋势和经营因素中，提前预测明日需求。" />
+      <SceneTitle eyebrow="01 · FORECAST" title="订单还没来，Nora 已经开始准备" description="从历史订单、门店趋势和经营因素中，提前预测今日需求。" />
 
       <div className={styles.forecastCanvas} style={{ "--forecast-network": networkProgress, "--forecast-curve": curveProgress } as CSSProperties}>
         <div className={styles.storeField}>
@@ -48,9 +48,8 @@ export function ForecastScene({ progress, onInteract }: { progress: number; onIn
           ))}
           <div className={styles.forecastCore}>
             <span><Sparkles size={20} /></span>
-            <small>明日需求预测</small>
+            <small>今日需求预测</small>
             <strong>3,364<em>份</em></strong>
-            <p>{selectedStore.name}贡献 {selectedStore.portions} 份</p>
           </div>
         </div>
 
@@ -77,7 +76,6 @@ export function ForecastScene({ progress, onInteract }: { progress: number; onIn
         <div className={styles.forecastFactors}>
           <span><CloudSun size={18} />预测因素</span>
           {FORECAST_SCENARIO.factors.map((factor, index) => <i key={factor} className={progress > 0.1 + index * 0.065 ? styles.isVisible : ""}>{factor}</i>)}
-          <strong className={progress > 0.74 ? styles.isVisible : ""}><small>明日鸡胸肉预计需求</small>+18.6%</strong>
         </div>
       </div>
     </section>

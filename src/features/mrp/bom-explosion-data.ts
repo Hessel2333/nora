@@ -33,7 +33,7 @@ export interface RecipeLayer {
 }
 
 export const EXPLOSION_MODES: Array<{ id: ExplosionMode; label: string }> = [
-  { id: "finished", label: "成品" },
+  { id: "finished", label: "净菜包" },
   { id: "semi", label: "半成品" },
   { id: "raw", label: "原料" },
 ];
@@ -62,7 +62,7 @@ export const RECIPE_LAYERS: RecipeLayer[] = [
   },
   {
     id: "kung-pao-sauce",
-    name: "宫保调味汁",
+    name: "宫保调味料包",
     code: "SF02008",
     quantity: 120,
     ratio: 24,
@@ -79,7 +79,7 @@ export const RECIPE_LAYERS: RecipeLayer[] = [
       { id: "soy-sauce", name: "酿造生抽", code: "RM03026", quantity: 30, unit: "g", available: 46.2, status: "normal", storage: "常温库 C-04", cropPosition: "18% 8%" },
       { id: "rice-vinegar", name: "米醋", code: "RM03028", quantity: 20, unit: "g", available: 28.6, status: "normal", storage: "常温库 C-04", cropPosition: "82% 8%" },
       { id: "sugar", name: "白砂糖", code: "RM03012", quantity: 22, unit: "g", available: 84, status: "normal", storage: "常温库 C-02", cropPosition: "18% 50%" },
-      { id: "cooking-wine", name: "料酒", code: "RM03031", quantity: 12, unit: "g", available: 19.5, status: "normal", storage: "常温库 C-04", cropPosition: "82% 50%" },
+      { id: "rice-wine", name: "料酒", code: "RM03031", quantity: 12, unit: "g", available: 19.5, status: "normal", storage: "常温库 C-04", cropPosition: "82% 50%" },
       { id: "chili-spice", name: "干辣椒花椒", code: "RM03110", quantity: 8, unit: "g", available: 3.1, status: "tight", storage: "香辛料库 C-08", cropPosition: "18% 92%" },
       { id: "sauce-starch", name: "调味汁淀粉", code: "RM03019", quantity: 8, unit: "g", available: 23.4, status: "normal", storage: "常温库 C-06", cropPosition: "82% 92%" },
       { id: "water", name: "净化水", code: "RM00001", quantity: 20, unit: "g", available: 999, status: "normal", storage: "生产供水", cropPosition: "82% 8%" },
@@ -107,17 +107,17 @@ export const RECIPE_LAYERS: RecipeLayer[] = [
     ],
   },
   {
-    id: "roasted-peanuts",
-    name: "熟花生米",
+    id: "peanut-pack",
+    name: "独立花生料包",
     code: "RM03108",
     quantity: 54,
     ratio: 10.8,
     unit: "g",
-    image: "/images/bom-explosion/semi-roasted-peanuts.png",
-    rawImage: "/images/bom-explosion/semi-roasted-peanuts.png",
+    image: "/images/bom-explosion/semi-peanuts.png",
+    rawImage: "/images/bom-explosion/semi-peanuts.png",
     rawInput: 55.1,
     yieldRate: 98,
-    station: "干货预制间",
+    station: "干货分装区",
     stageTop: 69,
     rawStageTop: 79,
     labelSide: "right",
@@ -129,11 +129,11 @@ export const RECIPE_LAYERS: RecipeLayer[] = [
 
 export const FINISHED_PRODUCT = {
   id: "CP0001",
-  name: "宫保鸡丁",
+  name: "宫保鸡丁净菜包",
   code: "CP0001",
   bomVersion: "V2.1",
   quantity: 500,
-  unit: "g/份",
+  unit: "份",
   image: "/images/bom-explosion/kung-pao-finished.png",
   bowlImage: "/images/bom-explosion/empty-black-bowl.png",
   effectiveAt: "2026-08-01 08:00",

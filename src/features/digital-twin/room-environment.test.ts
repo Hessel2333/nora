@@ -26,6 +26,7 @@ describe("room environment profiles", () => {
       expect(profile.history["7d"]).toHaveLength(7);
       expect(profile.history["24h"].at(-1)?.temperature).toBe(Number.parseFloat(snapshot.temperature));
       expect(profile.history["24h"].at(-1)?.humidity).toBe(Number.parseFloat(snapshot.humidity));
+      expect(profile.history["7d"].at(-1)?.label).toBe("今天");
     }
   });
 

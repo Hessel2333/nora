@@ -1,5 +1,10 @@
 import { products } from "@/lib/mock-data";
-import { FINISHED_PRODUCT, RECIPE_LAYERS, TOTAL_RAW_INPUT, TOTAL_RAW_MATERIALS } from "@/features/mrp/bom-explosion-data";
+import {
+  FINISHED_PRODUCT,
+  RECIPE_LAYERS,
+  TOTAL_RAW_MATERIALS,
+  type RecipeLayer,
+} from "@/features/mrp/bom-explosion-data";
 import {
   createDemandWorkspace,
   createOrderWorkspace,
@@ -8,16 +13,19 @@ import {
 } from "@/features/mrp/mrp-data";
 
 const kungPaoProduct = products.find((product) => product.id === "p-001");
+const [baseChicken, baseSauce, baseVegetables, basePeanuts] = RECIPE_LAYERS;
+
+export const SHOWROOM_CUSTOMER = "华润万家深圳福田店";
 
 export const SHOWROOM_ORDER = {
   code: "202608130038",
-  customer: "华润万家深圳福田店",
+  customer: SHOWROOM_CUSTOMER,
   portions: 350,
   deliveryAt: "11:30",
   lines: [
-    { id: "p-001", name: "宫保鸡丁", quantity: 120, unit: "份", interactive: true },
-    { id: "p-002", name: "鱼香肉丝", quantity: 80, unit: "份", interactive: false },
-    { id: "p-showroom-003", name: "青椒肉丝", quantity: 150, unit: "份", interactive: false },
+    { id: "p-001", name: "宫保鸡丁净菜包", quantity: 120, unit: "份", interactive: true },
+    { id: "p-002", name: "鱼香肉丝净菜包", quantity: 80, unit: "份", interactive: false },
+    { id: "p-showroom-003", name: "青椒肉丝净菜包", quantity: 150, unit: "份", interactive: false },
   ],
 };
 
@@ -29,13 +37,89 @@ export const SHOWROOM_ORDER_METRICS = [
   { value: 4, suffix: "批", label: "配送批次" },
 ];
 
+const SHOWROOM_RECIPE_LAYERS: RecipeLayer[] = [
+  {
+    ...baseChicken,
+    name: "鸡胸肉",
+    quantity: 190,
+    ratio: 63.3,
+    rawInput: 203.2,
+    yieldRate: 93.5,
+    rawMaterials: [
+      { ...baseChicken.rawMaterials[0], quantity: 190 },
+      { ...baseChicken.rawMaterials[1], quantity: 6.6 },
+      { ...baseChicken.rawMaterials[2], quantity: 6.6 },
+    ],
+  },
+  {
+    ...baseSauce,
+    name: "宫保调味料包",
+    quantity: 30,
+    ratio: 10,
+    rawInput: 30,
+    rawMaterials: baseSauce.rawMaterials.map((material) => ({
+      ...material,
+      quantity: Number((material.quantity * 0.25).toFixed(1)),
+    })),
+  },
+  {
+    ...baseVegetables,
+    id: "cucumber-dice",
+    name: "蔬菜丁（黄瓜丁）",
+    code: "SF02021-C",
+    quantity: 30,
+    ratio: 10,
+    rawInput: 33,
+    yieldRate: 90.9,
+    rawMaterials: [{ ...baseVegetables.rawMaterials[0], quantity: 33 }],
+  },
+  {
+    ...baseVegetables,
+    id: "chili-segments",
+    name: "辣椒段",
+    code: "SF02021-P",
+    quantity: 10,
+    ratio: 3.3,
+    image: baseSauce.rawImage,
+    rawImage: baseSauce.rawImage,
+    rawInput: 10.4,
+    yieldRate: 96.2,
+    station: "香辛料预制间",
+    rawMaterials: [
+      { ...baseSauce.rawMaterials[4], id: "dried-chili", name: "干辣椒", quantity: 10.4 },
+    ],
+  },
+  {
+    ...baseVegetables,
+    id: "scallion-garnish",
+    name: "葱花（可选）",
+    code: "SF02021-S",
+    quantity: 10,
+    ratio: 3.3,
+    rawInput: 10.6,
+    yieldRate: 94.3,
+    rawMaterials: [{ ...baseVegetables.rawMaterials[1], quantity: 10.6 }],
+  },
+  {
+    ...basePeanuts,
+    name: "花生米",
+    quantity: 30,
+    ratio: 10,
+    rawInput: 30.6,
+    yieldRate: 98,
+    rawMaterials: [{ ...basePeanuts.rawMaterials[0], quantity: 30.6 }],
+  },
+];
+
+const SHOWROOM_RECIPE_RAW_INPUT = SHOWROOM_RECIPE_LAYERS.reduce((sum, layer) => sum + layer.rawInput, 0);
+
 export const SHOWROOM_BOM = {
-  finished: FINISHED_PRODUCT,
-  layers: RECIPE_LAYERS,
-  rawInput: TOTAL_RAW_INPUT,
+  finished: { ...FINISHED_PRODUCT, quantity: 300 },
+  layers: SHOWROOM_RECIPE_LAYERS,
+  rawInput: SHOWROOM_RECIPE_RAW_INPUT,
   rawMaterialKinds: TOTAL_RAW_MATERIALS,
-  yieldRate: (FINISHED_PRODUCT.quantity / TOTAL_RAW_INPUT) * 100,
-  standardCost: kungPaoProduct?.cost ?? 18.62,
+  yieldRate: (300 / SHOWROOM_RECIPE_RAW_INPUT) * 100,
+  standardCost: Number(((kungPaoProduct?.cost ?? 18.62) * 0.6).toFixed(2)),
 };
 
 export interface ShowroomProcessStep {
@@ -54,49 +138,71 @@ export const BOM_PROCESS_ROUTES: Record<string, {
 }> = {
   "marinated-chicken": {
     sourceLabel: "冷鲜鸡胸肉",
-    inputWeight: 246,
-    outputWeight: 226,
+    inputWeight: 203.2,
+    outputWeight: 190,
     steps: [
-      { id: "receive", label: "毛料", detail: "246 g", outputWeight: 246 },
-      { id: "trim", label: "修整", detail: "损耗 2.8%", outputWeight: 239.1, tone: "loss" },
-      { id: "dice", label: "切丁", detail: "15 × 15 mm", outputWeight: 235.6, tone: "specification" },
-      { id: "marinate", label: "腌制", detail: "20 min · 0–4℃", outputWeight: 231.2, tone: "temperature" },
-      { id: "rest", label: "静置", detail: "吸收 12 min", outputWeight: 228.4 },
-      { id: "weigh", label: "称量", detail: "净料 226 g", outputWeight: 226 },
+      { id: "receive", label: "毛料", detail: "203.2 g", outputWeight: 203.2 },
+      { id: "trim", label: "修整", detail: "损耗 2.8%", outputWeight: 197.5, tone: "loss" },
+      { id: "dice", label: "切丁", detail: "15 × 15 mm", outputWeight: 194.8, tone: "specification" },
+      { id: "marinate", label: "腌制", detail: "20 min · 0–4℃", outputWeight: 192.4, tone: "temperature" },
+      { id: "rest", label: "静置", detail: "吸收 12 min", outputWeight: 191.1 },
+      { id: "weigh", label: "称量", detail: "净料 190 g", outputWeight: 190 },
     ],
   },
-  "diced-vegetables": {
-    sourceLabel: "蔬菜毛料",
-    inputWeight: 111,
-    outputWeight: 100,
+  "cucumber-dice": {
+    sourceLabel: "鲜黄瓜",
+    inputWeight: 33,
+    outputWeight: 30,
     steps: [
-      { id: "receive", label: "验收", detail: "农残快检合格", outputWeight: 111 },
-      { id: "wash", label: "清洗", detail: "流动水 3 min", outputWeight: 107.8 },
-      { id: "peel", label: "去皮", detail: "损耗 4.6%", outputWeight: 102.7, tone: "loss" },
-      { id: "dice", label: "切丁", detail: "12 × 12 mm", outputWeight: 101.2, tone: "specification" },
-      { id: "weigh", label: "称量", detail: "净料 100 g", outputWeight: 100 },
+      { id: "receive", label: "验收", detail: "农残快检合格", outputWeight: 33 },
+      { id: "wash", label: "清洗", detail: "流动水 3 min", outputWeight: 32.1 },
+      { id: "trim", label: "修整", detail: "损耗 6.1%", outputWeight: 30.1, tone: "loss" },
+      { id: "dice", label: "切丁", detail: "12 × 12 mm", outputWeight: 30, tone: "specification" },
+      { id: "weigh", label: "称量", detail: "净料 30 g", outputWeight: 30 },
     ],
   },
   "kung-pao-sauce": {
     sourceLabel: "调味原料",
-    inputWeight: 120,
-    outputWeight: 120,
+    inputWeight: 30,
+    outputWeight: 30,
     steps: [
-      { id: "batch", label: "领料", detail: "7 项配料", outputWeight: 120 },
-      { id: "weigh", label: "称量", detail: "误差 ±0.5 g", outputWeight: 120 },
-      { id: "mix", label: "搅拌", detail: "120 rpm · 6 min", outputWeight: 120 },
-      { id: "check", label: "复核", detail: "盐度 1.8%", outputWeight: 120, tone: "specification" },
+      { id: "batch", label: "领料", detail: "7 项配料", outputWeight: 30 },
+      { id: "weigh", label: "称量", detail: "误差 ±0.5 g", outputWeight: 30 },
+      { id: "mix", label: "搅拌", detail: "120 rpm · 6 min", outputWeight: 30 },
+      { id: "check", label: "复核", detail: "盐度 1.8%", outputWeight: 30, tone: "specification" },
     ],
   },
-  "roasted-peanuts": {
-    sourceLabel: "脱皮花生米",
-    inputWeight: 55.1,
-    outputWeight: 54,
+  "chili-segments": {
+    sourceLabel: "干辣椒",
+    inputWeight: 10.4,
+    outputWeight: 10,
     steps: [
-      { id: "receive", label: "验收", detail: "55.1 g", outputWeight: 55.1 },
-      { id: "sort", label: "挑选", detail: "异物剔除", outputWeight: 54.7 },
-      { id: "roast", label: "烘烤", detail: "165℃ · 8 min", outputWeight: 54.2, tone: "temperature" },
-      { id: "weigh", label: "称量", detail: "净料 54 g", outputWeight: 54 },
+      { id: "receive", label: "验收", detail: "色泽与水分合格", outputWeight: 10.4 },
+      { id: "sort", label: "挑选", detail: "去蒂除杂", outputWeight: 10.2, tone: "loss" },
+      { id: "cut", label: "切段", detail: "15–20 mm", outputWeight: 10, tone: "specification" },
+      { id: "weigh", label: "称量", detail: "净料 10 g", outputWeight: 10 },
+    ],
+  },
+  "scallion-garnish": {
+    sourceLabel: "净大葱",
+    inputWeight: 10.6,
+    outputWeight: 10,
+    steps: [
+      { id: "receive", label: "验收", detail: "10.6 g", outputWeight: 10.6 },
+      { id: "wash", label: "清洗", detail: "流动水 2 min", outputWeight: 10.3 },
+      { id: "cut", label: "切葱花", detail: "3–5 mm", outputWeight: 10, tone: "specification" },
+      { id: "weigh", label: "可选投料", detail: "净料 10 g", outputWeight: 10 },
+    ],
+  },
+  "peanut-pack": {
+    sourceLabel: "脱皮花生米",
+    inputWeight: 30.6,
+    outputWeight: 30,
+    steps: [
+      { id: "receive", label: "验收", detail: "30.6 g", outputWeight: 30.6 },
+      { id: "sort", label: "挑选", detail: "异物剔除", outputWeight: 30.3 },
+      { id: "check", label: "复核", detail: "外观与异物合格", outputWeight: 30.1, tone: "specification" },
+      { id: "weigh", label: "称量", detail: "净料 30 g", outputWeight: 30 },
     ],
   },
 };
@@ -106,15 +212,14 @@ export const SHOWROOM_MRP = {
   demand: createDemandWorkspace(DATE_SCENARIOS[0].id),
   inputs: ["订单需求", "BOM", "库存", "安全库存", "在途库存", "供应商周期"],
   timeline: [
-    { time: "08:00", task: "肉类切配" },
-    { time: "08:10", task: "蔬菜切配" },
-    { time: "08:30", task: "称量配料" },
-    { time: "10:00", task: "包装" },
-    { time: "10:40", task: "冷藏" },
-    { time: "11:00", task: "装车" },
+    { time: "08:00", task: "鸡胸肉修整" },
+    { time: "08:20", task: "鸡胸肉切丁" },
+    { time: "08:40", task: "鸡胸肉腌制" },
+    { time: "09:00", task: "静置入味" },
+    { time: "09:20", task: "净料称量" },
   ],
   calculation: {
-    material: "明日鸡胸肉需求",
+    material: "今日鸡胸肉需求",
     demandKg: 868.6,
     onHandKg: 522,
     inTransitKg: 126,
@@ -127,27 +232,27 @@ export const SHOWROOM_MRP = {
 
 export const FORECAST_SCENARIO = {
   stores: [
-    { id: "zhenhai", name: "镇海店", portions: 684, change: 12.4, x: 15, y: 16 },
+    { id: "customer-huarun", name: SHOWROOM_CUSTOMER, portions: 684, change: 12.4, x: 15, y: 16 },
     { id: "beilun", name: "北仑店", portions: 572, change: 8.7, x: 5, y: 39 },
     { id: "yinzhou", name: "鄞州店", portions: 821, change: 21.2, x: 21, y: 61 },
     { id: "haishu", name: "海曙店", portions: 696, change: 6.1, x: 8, y: 82 },
     { id: "jiangbei", name: "江北店", portions: 591, change: -2.8, x: 29, y: 92 },
   ],
   dishes: [
-    { name: "宫保鸡丁", portions: 1_286, change: 18.6 },
-    { name: "鱼香肉丝", portions: 936, change: 7.4 },
-    { name: "青椒肉丝", portions: 1_142, change: -3.2 },
+    { name: "宫保鸡丁净菜包", portions: 1_286, change: 18.6 },
+    { name: "鱼香肉丝净菜包", portions: 936, change: 7.4 },
+    { name: "青椒肉丝净菜包", portions: 1_142, change: -3.2 },
   ],
-  factors: ["历史销量", "星期特征", "天气", "节假日", "促销计划", "门店趋势"],
-  dates: ["08/01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "明日"],
+  factors: ["历史销量", "星期特征", "天气", "节假日", "门店趋势"],
+  dates: ["08/01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "今日"],
   actual: [1860, 2100, 1980, 2360, 2280, 2520, 2460, 2380, 2670, 2590, 2810, 2740, 2960, 3040],
   predicted: [1790, 2050, 2020, 2310, 2340, 2460, 2510, 2430, 2610, 2660, 2760, 2820, 3010, 3364],
 };
 
 export const TRACEABILITY_SCENARIO = {
-  finished: { type: "成品批次", code: "CP260814018", label: "宫保鸡丁" },
+  finished: { type: "净菜成品批次", code: "CP260814018", label: "宫保鸡丁净菜包" },
   chain: [
-    { type: "生产工单", code: "WO260814021", label: "宫保鸡丁 1,200 份" },
+    { type: "生产工单", code: "WO260814021", label: "宫保鸡丁净菜包 1,200 份" },
     { type: "半成品批次", code: "SP260814034", label: "腌制鸡丁" },
     { type: "原料批次", code: "RM260813124", label: "冷鲜鸡胸肉" },
     { type: "供应商", code: "SUP-018", label: "深农优品" },
@@ -185,18 +290,35 @@ export const PROCUREMENT_SCENARIO = {
   ] satisfies SupplierQuote[],
 };
 
-export const BUSINESS_SCENARIO = {
-  product: "宫保鸡丁",
-  revenue: 18_720,
-  costs: [
-    { label: "原料成本", value: 10_230 },
-    { label: "人工成本", value: 1_460 },
-    { label: "包材成本", value: 620 },
-    { label: "配送成本", value: 840 },
-    { label: "损耗成本", value: 310 },
+export const SCHEDULING_SCENARIO = {
+  deliveryAt: "11:30",
+  orderPortions: 350,
+  criticalPath: [
+    { id: "trim", time: "08:00", label: "鸡胸肉修整", detail: "先处理最长前置工序", duration: 20 },
+    { id: "dice", time: "08:20", label: "切丁", detail: "15 × 15 mm", duration: 20 },
+    { id: "marinate", time: "08:40", label: "腌制与静置", detail: "等待窗口 40 min", duration: 40 },
+    { id: "combine", time: "09:20", label: "合料称量", detail: "六项配方齐套", duration: 20 },
+    { id: "pack", time: "09:40", label: "包装入冷链", detail: "按配送批次归集", duration: 40 },
   ],
-  grossProfit: 5_260,
-  grossMargin: 28.1,
+  parallelTasks: [
+    { time: "08:45", label: "黄瓜丁与辣椒段", detail: "利用腌制等待窗口完成" },
+    { time: "09:00", label: "宫保调味料包称量", detail: "与主路径并行，不占肉类工位" },
+  ],
+  reasons: ["交付时间", "工艺前置关系", "工位负荷", "冷链窗口"],
+};
+
+export const BUSINESS_SCENARIO = {
+  product: "宫保鸡丁净菜包",
+  revenue: 238_600,
+  costs: [
+    { label: "原料成本", value: 138_420 },
+    { label: "人工成本", value: 22_860 },
+    { label: "包材成本", value: 9_740 },
+    { label: "配送成本", value: 14_260 },
+    { label: "损耗成本", value: 9_418 },
+  ],
+  grossProfit: 43_902,
+  grossMargin: 18.4,
   marginChange: -2.3,
   attribution: [
     { label: "鸡胸肉上涨", value: -0.8 },

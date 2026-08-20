@@ -9,9 +9,9 @@ import { SceneTitle } from "../components/scene-title";
 import styles from "../showroom.module.css";
 
 const cascade = [
-  { label: "菜品", detail: "宫保鸡丁 · 120份" },
+  { label: "净菜产品", detail: "宫保鸡丁净菜包 · 120份" },
   { label: "BOM", detail: "V2.1 数字菜谱" },
-  { label: "半成品", detail: "4 项加工需求" },
+  { label: "配方组件", detail: "6 项标准用量" },
   { label: "原料", detail: "14 种毛料" },
   { label: "Routing", detail: "6 道工艺" },
 ];
@@ -27,7 +27,7 @@ export function OrderScene({ progress, onInteract, onOpenBom }: { progress: numb
 
   return (
     <section className={`${styles.scene} ${styles.orderScene}`}>
-      <SceneTitle eyebrow="02 · ORDER EXPLOSION" title="一张订单，裂变成工厂可以执行的生产语言" description="350 份需求沿着菜品、BOM、半成品、原料和工艺路线持续展开。" />
+      <SceneTitle eyebrow="02 · ORDER EXPLOSION" title="一张订单，裂变成工厂可以执行的生产语言" description="350 份需求沿着净菜产品、BOM、半成品、原料和工艺路线持续展开。" />
 
       <div className={styles.orderExplosionCanvas}>
         <svg className={styles.orderGraphLines} viewBox="0 0 1480 470" aria-hidden="true">
@@ -39,9 +39,10 @@ export function OrderScene({ progress, onInteract, onOpenBom }: { progress: numb
         </svg>
 
         <article className={`${styles.orderSourceNode} ${progress > 0.22 ? styles.isVisible : ""}`}>
+          <span className={styles.orderCustomerName}>{SHOWROOM_ORDER.customer}</span>
           <small>销售订单</small>
           <strong>{SHOWROOM_ORDER.portions}<em>份</em></strong>
-          <span>#{SHOWROOM_ORDER.code}</span>
+          <span className={styles.orderCode}>#{SHOWROOM_ORDER.code}</span>
           <p>{SHOWROOM_ORDER.deliveryAt} 配送</p>
         </article>
 

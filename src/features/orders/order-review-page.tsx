@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -11,6 +11,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { DocumentEventTimeline, DocumentSection } from "@/components/document-ui";
+import { HelpTip } from "@/components/help-tip";
 import {
   Badge,
   Button,
@@ -20,6 +21,7 @@ import {
   inputClass,
 } from "@/components/ui";
 import { noraApi, type ProductionReadiness } from "@/lib/nora-api";
+import { getOrderBomCoverage } from "@/lib/bom-structure";
 import { useNoraStore } from "@/lib/store";
 import type { SalesOrder } from "@/lib/types";
 import { formatCurrency, formatNumber } from "@/lib/utils";
@@ -34,26 +36,54 @@ export function OrderReviewPage({ id }: { id: string }) {
   );
   const approve = useNoraStore((state) => state.approveOrder);
   const returnOrder = useNoraStore((state) => state.returnOrder);
-  const [readiness, setReadiness] = useState<ProductionReadiness>();
-  const [readinessError, setReadinessError] = useState("");
+  const mode = useNoraStore((state) => state.mode);
+  const boms = useNoraStore((state) => state.boms);
+  const [apiReadiness, setApiReadiness] = useState<ProductionReadiness>();
+  const [apiReadinessError, setApiReadinessError] = useState("");
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const reviewOrderId = order?.id;
+  const demoReadiness = useMemo(() => {
+    if (mode !== "demo" || !order) return undefined;
+    const coverage = getOrderBomCoverage(order, boms);
+    const lines = coverage.lines.map(({ line, bom }) => ({
+      salesOrderLineId: line.id,
+      productId: line.productId,
+      productCode: line.productCode ?? line.productId,
+      productName: line.productName,
+      requiredQuantity: line.quantity,
+      unit: line.unit,
+      bomReady: Boolean(bom),
+      selectedBomVersionId: bom?.versionId ?? bom?.id,
+      selectedBomVersion: bom?.version,
+    }));
+    const readyLineCount = lines.filter((line) => line.bomReady).length;
+    return {
+      orderId: order.id,
+      deliveryAt: order.deliveryAt,
+      ready: readyLineCount === lines.length,
+      readyLineCount,
+      missingBomCount: lines.length - readyLineCount,
+      lines,
+    } satisfies ProductionReadiness;
+  }, [boms, mode, order]);
+  const readiness = mode === "demo" ? demoReadiness : apiReadiness;
+  const readinessError = mode === "demo" ? "" : apiReadinessError;
 
   useEffect(() => {
-    if (!reviewOrderId) return;
+    if (!reviewOrderId || mode === "demo") return;
     let active = true;
-    setReadiness(undefined);
-    setReadinessError("");
+    setApiReadiness(undefined);
+    setApiReadinessError("");
     void noraApi
       .productionReadiness(reviewOrderId)
       .then((result) => {
-        if (active) setReadiness(result);
+        if (active) setApiReadiness(result);
       })
       .catch((reason) => {
         if (active) {
-          setReadinessError(
+          setApiReadinessError(
             reason instanceof Error ? reason.message : "BOM 检查失败，请稍后重试。",
           );
         }
@@ -61,15 +91,27 @@ export function OrderReviewPage({ id }: { id: string }) {
     return () => {
       active = false;
     };
-  }, [reviewOrderId]);
+  }, [mode, reviewOrderId]);
 
   const handleApprove = async () => {
     if (!order) return;
     setSaving(true);
     setError("");
     try {
-      await approve(order.id, comment.trim() || undefined);
-      router.push("/orders/approvals");
+      const approvedOrder = await approve(order.id, comment.trim() || undefined);
+      const query = new URLSearchParams({ result: "approved", orderCode: approvedOrder.code });
+      if (mode === "demo") {
+        query.set("demo", "true");
+      } else {
+        try {
+          const demand = await noraApi.productionDemand(order.id);
+          query.set("demandCode", demand.code);
+        } catch {
+          // Approval is already committed. The destination keeps the success
+          // result and lets the production-demand workbench reload the number.
+        }
+      }
+      router.push(`/orders/approvals?${query.toString()}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "审核失败，请稍后重试。");
     } finally {
@@ -86,8 +128,9 @@ export function OrderReviewPage({ id }: { id: string }) {
     setSaving(true);
     setError("");
     try {
-      await returnOrder(order.id, comment.trim());
-      router.push("/orders/approvals");
+      const returnedOrder = await returnOrder(order.id, comment.trim());
+      const query = new URLSearchParams({ result: "returned", orderCode: returnedOrder.code });
+      router.push(`/orders/approvals?${query.toString()}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "退回失败，请稍后重试。");
     } finally {
@@ -138,10 +181,7 @@ export function OrderReviewPage({ id }: { id: string }) {
 
           <Card className="overflow-hidden">
             <div className="border-b border-[var(--stroke-subtle)] px-5 py-4">
-              <h2 className="font-semibold text-[var(--text-primary)]">订单商品与 BOM</h2>
-              <p className="mt-1 text-xs text-[var(--text-tertiary)]">
-                审核后将按以下商品和数量创建生产需求行。
-              </p>
+              <div className="flex items-center gap-1"><h2 className="font-semibold text-[var(--text-primary)]">订单商品与 BOM</h2><HelpTip title="需求明细">审核通过后，将按当前商品和数量创建生产需求明细。</HelpTip></div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -214,7 +254,7 @@ export function OrderReviewPage({ id }: { id: string }) {
                     : readiness
                       ? readiness.ready
                         ? `${readiness.readyLineCount} 项均已匹配有效版本`
-                        : `${readiness.missingBomCount} 项需要在排产前补齐 BOM`
+                        : `${readiness.missingBomCount} 项需要在批次分配前补齐 BOM`
                       : "正在按交期检查有效版本"
                 }
                 ready={readiness?.ready}
@@ -223,7 +263,7 @@ export function OrderReviewPage({ id }: { id: string }) {
             </div>
             {readiness && !readiness.ready && (
               <p className="mt-4 rounded-[var(--radius-control)] bg-[var(--status-warning-soft)] p-3 text-xs leading-5 text-[var(--text-secondary)]">
-                缺少 BOM 不阻止确认客户需求，但该需求不能进入生产计划。请在排产前前往
+                缺少 BOM 不阻止确认客户需求，但该需求不能进入批次分配。请在生产准备阶段前往
                 <Link href="/catalog/boms" className="mx-1 font-medium text-[var(--interactive)] hover:underline">
                   产品与 BOM
                 </Link>
@@ -243,11 +283,16 @@ export function OrderReviewPage({ id }: { id: string }) {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--interactive-soft)] text-[var(--interactive)]">
                 <ClipboardCheck size={19} />
               </span>
-              <div>
+              <div className="flex items-center gap-1">
                 <h2 className="font-semibold text-[var(--text-primary)]">审核决定</h2>
-                <p className="mt-1 text-xs leading-5 text-[var(--text-tertiary)]">
-                  通过后创建生产需求并进入待计划，不会直接生成生产工单。
-                </p>
+                <HelpTip title="审核后流程">
+                  <span className="block">通过后将：</span>
+                  <span className="mt-1 block">• 锁定订单商品与数量</span>
+                  <span className="block">• 创建独立生产需求</span>
+                  <span className="block">• 冻结交期对应的完整配方快照</span>
+                  <span className="block">• 由计划员确认聚合或拆分</span>
+                  <span className="mt-1 block">不会直接生成生产工单。</span>
+                </HelpTip>
               </div>
             </div>
 
@@ -264,13 +309,6 @@ export function OrderReviewPage({ id }: { id: string }) {
                   }}
                 />
               </Field>
-            </div>
-
-            <div className="mt-5 space-y-2 rounded-[var(--radius-control)] bg-[var(--surface-muted)] p-4 text-xs leading-5 text-[var(--text-secondary)]">
-              <p>• 锁定当前订单与商品数量</p>
-              <p>• 创建独立生产需求和来源关系</p>
-              <p>• 保存交期对应的顶层 BOM 版本</p>
-              <p>• 后续由生产计划决定聚合或拆分</p>
             </div>
 
             {error && (
