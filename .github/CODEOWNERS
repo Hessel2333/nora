@@ -1,0 +1,14 @@
+# Replace the owner below if repository governance changes.
+* @Hessel2333
+
+# High-risk contracts require explicit review.
+/apps/api/prisma/ @Hessel2333
+/apps/api/src/modules/boms/ @Hessel2333
+/apps/api/src/modules/orders/ @Hessel2333
+/docs/domain/ @Hessel2333
+/docs/state-machines/ @Hessel2333
+/docs/decisions/ @Hessel2333
+/.env.example @Hessel2333
+/compose.yaml @Hessel2333
+/src/components/ @Hessel2333
+/.github/workflows/ @Hessel2333

@@ -1,117 +1,110 @@
-# Nora Agent Instructions
+# Nora Collaboration Contract
 
-## 项目定位
+本文件是所有开发者、模型和智能体的统一入口。最近目录中的 `AGENTS.md` 可增加局部规则，但不得削弱这里的不变量。
 
-Nora 是面向中央厨房、净配菜工厂、团餐供应链的新一代 AI ERP + MES + WMS 平台。
+## 一句话定位
 
-目标不是传统 ERP，而是类似 Odoo Manufacturing + 现代 SaaS + 食品制造 MES 的智能制造操作系统。
+Nora 将门店和客户订单，转化为可执行、可追溯、可核算的中央厨房生产批次。
 
-核心流程：
+## 当前事实
 
-客户订单 → AI预测 → BOM展开 → 生产计划 → MES工位执行 → 质量追溯 → 库存 → 配送
+- 订单、配方版本、审核生产需求、快照物料展开、生产批次确认和基于冻结 v2 配方的一批次一工单释放是后端 MVP。
+- Dashboard、旧排程详情、MES 执行、数字孪生、预测、门户和 Showroom 是明确 Demo，不是生产能力；生产准备与生产工单列表已有真实后端读取路径。
+- 配方版本内有序工艺步骤和工序级阶段投料已有首个 MVP；并行/返工路线、实际投料、完整单位换算、批次库存流水、真实 MES、质检追溯和实际成本尚未实现。
+- 当前单组织 ID 只是 MVP 边界，不等于已完成多租户或身份认证。
 
-## 设计原则
+## 开始工作前的阅读顺序
 
-参考 prototype 目录中的原型图。
+1. 本文件。
+2. [PRODUCT.md](PRODUCT.md) 和 [ROADMAP.md](ROADMAP.md)。
+3. [docs/index.md](docs/index.md)、[统一术语](docs/domain/glossary.md)、[上下文地图](docs/domain/context-map.md)。
+4. 与任务有关的领域流程、状态机、契约和 ADR。
+5. 目标目录最近的 `AGENTS.md`。
 
-设计风格：
-- 极简现代 SaaS
-- Odoo Manufacturing
-- Linear
-- Vercel Dashboard
-- Stripe Dashboard
+## 上下文边界
 
-禁止：
-- 传统 ERP 菜单树
-- 老式表格堆叠
-- 复杂单据页面
+- Order Management：客户订单、审核、变更、来源和交付承诺。
+- Recipe & Process：生产配方、工艺、版本、阶段投料和单位语义。
+- Planning：生产需求、合批/拆批、批次和工单释放。
+- Execution & Quality：扫码执行、实际投料/产出、质量和异常。
+- Inventory & Traceability：批次、库位、库存流水、效期和召回。
+- Integration：身份、外部 ERP/财务、硬件与标准适配器。
+- Showroom：营销演示；不得拥有 Operations 业务事实。
 
-## 技术栈
+跨上下文只通过已文档化的 ID、快照、API 或事件。不要共享可变内部对象。
 
-Frontend:
-- Next.js
-- React
-- TypeScript
-- Tailwind CSS
-- shadcn/ui
+## 不可违反的不变量
 
-Backend:
-- Node.js/NestJS
-- PostgreSQL
+- Nora 的生产边界止于净配菜成品：只允许来料验收、低温解冻、清洗、挑拣修整、切配、腌制、称重组配、分装、包装、复核和冷链暂存。禁止在领域模型、数据库枚举、API、BOM、工艺模板、Mock/seed、页面或 Showroom 中生成炒、蒸、煮、炸、煎、烤等最终加热步骤，以及热菜、热厨、灶台或对应产线/工位。若客户采购的是按某道菜命名的净菜包，名称必须明确带“净菜包/配菜包”，不能把它展示成已制熟菜品。
+- 生产环境不得静默回退到 Mock 数据。
+- 已审核订单和已释放工单必须使用不可变的完整配方依据；不得运行时读取最新主数据。
+- 发布未来配方版本不能提前使当前版本失效；历史版本必须按有效期可恢复。
+- 库存余额只能由库存流水或明确的派生投影得到；`Product.stock` 仅是 Demo/过渡字段。
+- 所有正式业务查询必须带组织边界。
+- 状态流转必须经过服务端领域服务，校验守卫、原子写入审计事件并支持幂等；前端不得直接改正式状态。
+- 正式写入必须记录真实用户、组织、设备（适用时）和服务端时间。生产环境禁止硬编码演示操作者。
+- API、数据库、事件或状态机变更必须同步更新契约文档。
+- 数据库结构变化必须提交可审查 migration；禁止用 `prisma db push` 代替正式 migration。
+- 金额和高精度数量在数据库使用 Decimal，不使用浮点字段作为事实源。
+- 正式页面必须覆盖 loading、empty、error、offline、permission denied 和 conflict 中适用的状态。
+- 不得新增没有真实行为、禁用说明或明确演示标识的控件。
+- 不得在没有数据、约束和评估基础时把固定规则包装成 AI。
 
-第一阶段优先 Mock 数据实现高质量 Demo。
+## 运行模式
 
-## 核心模块
+- `demo`：允许 Mock 和浏览器本地状态；所有表面显示演示身份。
+- `development`：使用本地服务；离线必须可见；写操作不能假成功。
+- `production`：只使用正式服务；离线写入失败；未接真实数据的能力不显示。
+- 离线 MES 必须设计显式队列、同步状态和幂等键。当前未实现，禁止用 Local Storage 假装完成。
 
-### Dashboard
-中央厨房运营驾驶舱：
-- 今日订单
-- 生产任务
-- 库存预警
-- 配送任务
-- AI建议
+## 技术与模块边界
 
-### Sales
-- 销售预测
-- 客户管理
-- 订单中心
+- 保持 Next.js/React/TypeScript/Tailwind/Radix、NestJS/Prisma/PostgreSQL、pnpm/Vitest 的模块化单体。
+- Web 通过 API 访问业务数据；Controller 管 HTTP；Service 管用例/事务；Policy 放纯业务规则；Prisma 管持久化。
+- 不因单个功能引入微服务、队列或大型基础设施。先形成 ADR 和真实运维理由。
+- 不随意升级核心依赖，不进行与目标无关的全仓重构。
+- 多人并行按垂直业务切片；一个聚合根同一时间只有一个主要修改者。先定契约，再并行；使用独立分支/Worktree 和小 PR。
 
-### Product
-- 产品档案
-- 原料
-- 半成品
-- 成品
-- BOM管理
-- 工艺路线
+## UI/UX
 
-### Manufacturing
-- 生产计划
-- 生产工单
-- MES执行
-- 工序管理
-- 生产看板
+- 默认从最终用户任务出发，使用清晰层级、充足留白、克制装饰和 44px 触控目标；保留真正有用的表格。
+- Operations 任务化、异常优先；Showroom 明确隔离。不要让 Three.js 或营销资源进入普通员工主线。
+- 不显示实现逻辑、占位说明或开发者话术。无真实行为的控件删除、禁用或明确标记演示。
+- 保持键盘可用、对话框焦点、`aria-live`、`prefers-reduced-motion` 和响应式布局。
 
-### Digital Twin
-数字孪生：
-- 2D工厂地图
-- 2.5D工厂模型
-- 3D扩展
-- 实时状态绑定
+## 验证命令
 
-### Warehouse
-- 库存
-- 批次
-- 食品追溯
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm build:api
+pnpm setup:local
+pnpm test:smoke
+pnpm docs:check
+```
 
-### AI Copilot
-- 销售预测
-- 智能采购建议
-- 生产排程优化
-- 异常分析
+数据库变更还需从空库运行 migrations、重复 seed、验证历史迁移和恢复方案。UI 关键流程要用浏览器检查桌面/移动、控制台和失败状态。
 
-## MES原则
+## Definition of Done
 
-员工端不是 ERP 页面。
+- Outcome 与非目标明确；术语和上下文一致。
+- 业务不变量由数据库约束、Policy、Service 或测试中至少一种可执行机制保护。
+- 正常、失败、重复提交、权限/组织和离线场景得到与风险相称的验证。
+- migration、API/事件/状态机契约、ADR 和用户文案已同步。
+- PR 包含测试、截图/日志或业务样例等证据；无密钥、`.env`、缓存或未解释二进制文件。
+- 新能力纵向可用，不以“页面可打开”作为完成标准。
 
-必须：
-- 大按钮
-- 少文字
-- 平板适配
-- 扫码录入
+## 禁止行为
 
-支持：
-- 开始任务
-- 暂停
-- 完成
-- 异常上报
+- 把 Demo、静态数字或浏览器状态描述为生产完成。
+- 为追求功能数量继续扩展 AI 驾驶舱、数字孪生或营销页。
+- 在 P0 内假装实现完整 ERP/WMS/MES、食品工艺或多租户。
+- 擅自选择许可证、重写 Git 历史、修改分支保护或替用户做重大商业决策。
+- 以模糊任务（如“完善 BOM”“把 MES 做真实”）开工；先使用 `docs/templates/` 明确验收。
 
-## 开发原则
+## 事实优先级
 
-每个模块完成：
-1. 页面可运行
-2. 使用模拟数据
-3. 有真实交互
-4. 保持设计一致
-
-优先完成：
-Dashboard → 订单 → BOM → 生产计划 → MES → 数字孪生
+冲突时按以下顺序处理：可执行数据库约束/测试与已接受 ADR → 当前契约和领域文档 → PRODUCT/ROADMAP → 根与局部 AGENTS → README/设计说明 → 原始会议纪要/表格/原型 → 聊天内容。若代码与已接受领域不变量冲突，先停止扩展并修复或新增 ADR，不把现状自动视为正确。

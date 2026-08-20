@@ -1,195 +1,81 @@
 # Nora
 
-面向中央厨房、净配菜工厂与团餐供应链的 AI ERP + MES + WMS 平台。
+Nora 将门店和客户订单，转化为可执行、可追溯、可核算的中央厨房生产批次。
 
-Nora 以客户订单为业务起点，将需求、BOM、生产、仓储、质量追溯和配送连接为一条可观察、可执行的履约链路。产品界面强调清晰的信息层级、可复用的业务单据和适合现场操作的 MES 交互，而不是传统 ERP 的复杂菜单与表格堆叠。
+当前仓库不是完整 ERP，也不是可直接投产的 MES/WMS。它包含一个可运行的 Next.js 产品原型，以及订单、生产需求和生产配方（BOM）的 NestJS/PostgreSQL MVP。项目当前重点是把订单到生产的领域底座做正确，而不是继续扩展展示页面。
 
-## 当前版本
+## 当前真实完成度
 
-仓库目前包含一套高完成度前端 Demo，以及已经接入本地 PostgreSQL 的订单与 BOM 后端 MVP。
+| 能力 | 当前状态 | 说明 |
+| --- | --- | --- |
+| 客户、商品、订单 | 后端 MVP | PostgreSQL 持久化，具备校验、乐观锁、状态事件和组织过滤 |
+| 配方版本 | 后端 MVP | 已有半开有效期、未来生效、历史选择和不可编辑发布版本 |
+| 订单审核到生产需求 | 后端 MVP | 同一事务完成；重复审核幂等；保存递归配方快照 |
+| 物料展开 | 后端 MVP | 审核后只使用审批快照；旧数据缺完整快照时失败关闭 |
+| 工艺步骤与阶段投料 | 后端 MVP | 配方版本包含有序工序，物料绑定投料步骤；支持同料多阶段，审批快照冻结工艺依据 |
+| 完整食品工艺与单位换算 | 领域设计中 | 并行/返工、副产物、替代料、质量点、密度与包装换算尚未实现 |
+| 生产批次与工单释放 | 后端 MVP | 支持合批/拆批、批次确认和基于冻结 v2 配方的一批次一工单释放，具备 Decimal、行锁、revision、幂等和审计；尚未接真实 MES 执行 |
+| 库存流水、质检追溯、实际成本 | 未实现 | 不能把 `Product.stock` 或前端页面当作事实源 |
+| Dashboard、MES、数字孪生、预测、门户 | 明确的 Demo | 仅在 `demo` 模式或 development 显式演示预览中开放，数据和操作不代表生产能力；生产工单列表已有真实读取路径 |
 
-已经持久化并通过 REST API 提供的能力：
+详细证据见 [批判性审查](docs/audits/nora-critical-review.md) 和 [UI/UX 审查](docs/audits/ui-ux-audit.md)。
 
-- 客户与商品基础数据
-- 销售订单创建、修改、提交、审核、退回和事件记录
-- 乐观锁与服务端订单状态机
-- 审核后创建生产需求并保留订单来源快照
-- BOM 版本复制、编辑、发布、停用和交期匹配
-- 多层 BOM 展开、循环检测、缺失 BOM 提示和物料需求汇总
-- OpenAPI 文档、Prisma migrations 和幂等演示数据初始化
-
-Dashboard、生产计划、MES、数字孪生、AI 预测、门户和展厅等页面已具备可交互 Demo；其中尚未接入后端的模块仍使用本地模拟数据，不应视为已完成的生产能力。
-
-## 核心业务链路
-
-```mermaid
-flowchart LR
-  A[客户订单] --> B[提交与审核]
-  B --> C[生产需求]
-  C --> D[匹配有效 BOM]
-  D --> E[展开物料需求]
-  E --> F[生产计划]
-  F --> G[MES 执行]
-  G --> H[质量与批次追溯]
-  H --> I[库存与配送]
-```
-
-当前后端 MVP 覆盖从客户订单到物料需求展开；生产执行、仓储与配送会按独立纵向模块逐步接入。
-
-## 系统架构
-
-```mermaid
-flowchart LR
-  WEB[Next.js Web<br/>:3000] -->|REST / JSON| API[NestJS API<br/>:3100/api/v1]
-  API --> ORM[Prisma ORM]
-  ORM --> DB[(PostgreSQL<br/>:54329)]
-  API --> DOCS[OpenAPI<br/>:3100/api/docs]
-```
-
-前端不直接访问数据库。NestJS Controller 维护 HTTP 契约，Service 编排用例与事务，Policy 保存可独立测试的业务规则，Prisma 负责持久化。
-
-## 技术栈
-
-| 层级 | 技术 |
-| --- | --- |
-| Web | Next.js 15、React 19、TypeScript、Tailwind CSS 4 |
-| UI | Radix UI、Lucide、ECharts、Three.js、React Hook Form、Zod |
-| API | NestJS 11、OpenAPI、class-validator |
-| 数据 | PostgreSQL 16、Prisma 7 |
-| 状态与测试 | Zustand、Vitest |
-| 工程 | pnpm workspace、Docker Compose、ESLint |
-
-## 仓库结构
+## 目标业务链路
 
 ```text
-nora/
-├── src/                      # Next.js Web 应用
-│   ├── app/                  # App Router 页面与布局
-│   ├── components/           # 通用 UI、壳层与业务单据组件
-│   ├── features/             # 按业务模块组织的前端功能
-│   └── lib/                  # Store、类型、API 客户端与领域工具
-├── apps/api/                 # NestJS + Prisma 后端
-│   ├── prisma/               # Schema、migrations 与 seed
-│   └── src/modules/          # Orders、BOM、Catalog 等纵向模块
-├── docs/                     # 架构、模块、状态机、运行手册与模板
-├── templates/backend-module/ # 新增后端模块的代码模板
-├── scripts/                  # Smoke Test 与工程脚本
-├── prototype/                # 产品原型参考
-├── DESIGN.md                 # UI/UX 设计系统与实现规范
-└── ROADMAP.md                # 版本规划
+订单 → 审核 → 不可变配方快照 → 生产需求 → 合批/拆批
+    → 物料与库存检查 → 释放工单 → 扫码执行 → 批次/质检/成本/追溯
 ```
+
+当前代码覆盖到“生产需求、版本化工艺、快照物料展开、批次确认和工单释放”，尚未进入真实 MES、实际投料、库存流水、质检和完工入库。后续阶段见 [ROADMAP.md](ROADMAP.md)。
+
+## 运行模式
+
+Web 与 API 必须使用一致的模式：
+
+```dotenv
+NEXT_PUBLIC_NORA_MODE=development
+NORA_MODE=development
+```
+
+| 模式 | 数据与写入规则 |
+| --- | --- |
+| `demo` | 显式加载 Mock；本地状态只用于体验；页面显示演示标识 |
+| `development` | 默认使用本地 API；API 离线时禁止写入。可从页头显式开启当前标签页隔离的“演示全部页面”预览 |
+| `production` | 只允许真实后端数据；离线禁止写入；不制造演示操作者；未接真实数据的页面隐藏 |
+
+生产环境不得静默回退到 Mock。离线 MES 未来必须使用显式同步队列、幂等键和可见同步状态，本仓库尚未实现。
+
+## 架构
+
+```text
+Next.js Web (:3000)
+        │ REST / JSON
+NestJS modular monolith (:3100/api/v1)
+        │ Prisma
+PostgreSQL (:54329)
+```
+
+- Controller 维护 HTTP 契约；Service 编排用例和事务；Policy 保存可独立测试规则。
+- 前端不访问数据库，不直接改变正式业务状态。
+- 正式数据查询必须带组织边界；当前只有固定演示组织，尚无完整租户/身份系统。
+- Decimal 用于数据库金额与精确数量。数据库变更必须提交 migration，禁止用 `prisma db push` 代替。
 
 ## 本地启动
 
-### 环境要求
-
-- Node.js 20 或更高版本
-- pnpm 11
-- Docker Desktop，或兼容的 Docker Engine 与 Docker Compose
-
-### 首次运行
+环境要求：Node.js 20+、pnpm、Docker Compose。
 
 ```bash
 cp .env.example .env
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev:full
 ```
 
-`dev:full` 会自动完成以下步骤：
+服务：Web <http://localhost:3000>、API <http://localhost:3100/api/v1>、OpenAPI <http://localhost:3100/api/docs>。
 
-1. 启动本地 PostgreSQL 并等待健康检查通过。
-2. 应用已提交的 Prisma migrations。
-3. 幂等初始化演示组织、客户、商品、订单和 BOM。
-4. 并行启动 Next.js 与 NestJS。
+若只需体验静态模块，将两个 `NORA_MODE` 均设为 `demo`。验证正式写入行为时使用 `development` 并启动 API/PostgreSQL。
 
-启动完成后可访问：
-
-| 服务 | 地址 |
-| --- | --- |
-| Web | <http://localhost:3000> |
-| API | <http://localhost:3100/api/v1> |
-| OpenAPI | <http://localhost:3100/api/docs> |
-| PostgreSQL | `localhost:54329` |
-
-当 API 不可用时，前端会保留离线 Demo 数据以避免界面完全失效。需要验证真实持久化流程时，请确认 API 与数据库均已启动。
-
-## 常用命令
-
-| 命令 | 说明 |
-| --- | --- |
-| `pnpm dev:full` | 初始化本地环境并同时启动 Web 与 API |
-| `pnpm dev:web` | 仅启动 Next.js |
-| `pnpm dev:api` | 仅启动 NestJS |
-| `pnpm setup:local` | 启动数据库、应用迁移并初始化演示数据 |
-| `pnpm db:up` / `pnpm db:down` | 启动或停止本地 PostgreSQL |
-| `pnpm db:migrate -- --name <name>` | 创建开发 migration |
-| `pnpm db:deploy` | 应用已提交的 migrations |
-| `pnpm db:seed` | 初始化演示数据 |
-| `pnpm db:studio` | 打开 Prisma Studio |
-| `pnpm typecheck` | 检查 Web 与 API 类型 |
-| `pnpm lint` | 运行 ESLint |
-| `pnpm test` | 运行 Web 与 API 测试 |
-| `pnpm test:smoke` | 对本地订单与 BOM API 执行只读 Smoke Test |
-| `pnpm build` | 构建 Web 应用 |
-| `pnpm build:api` | 构建 API |
-
-## API MVP 范围
-
-所有业务接口使用 `/api/v1` 前缀。
-
-- `GET /health`：健康检查
-- `GET /catalog/customers`、`GET /catalog/products`：订单所需主数据
-- `/orders`：订单查询、创建、修改、提交、审核和退回
-- `/orders/:id/production-readiness`：生产准备状态
-- `/orders/:id/production-demand`：审核后生成的生产需求
-- `/orders/:id/material-requirements`：按交期匹配 BOM 并展开物料需求
-- `/boms`：BOM 查询与创建
-- `/boms/:id/versions`：复制或创建版本
-- `/boms/versions/:versionId`：编辑、发布和停用版本
-
-准确的请求、响应与校验规则以本地 OpenAPI 页面为准。
-
-## 关键领域约束
-
-### 订单
-
-- 只有草稿订单可以修改。
-- 写操作必须携带 `revision`，避免覆盖其他用户的更新。
-- 业务状态变化必须写入事件日志。
-- 审核通过、事件写入与生产需求创建在同一个事务中完成。
-- 订单行与生产需求行保留商品、价格及来源快照。
-
-### BOM
-
-- 已发布和已停用版本不可直接修改，变更需要复制为新草稿。
-- 发布新版本时，同一 BOM 的旧生效版本自动停用。
-- 展开时按照订单交期选择当时有效的 BOM 版本。
-- 多层展开必须检测循环引用，并显式返回缺失 BOM。
-- 数量、价格与成本使用数据库 Decimal，禁止使用浮点数保存业务金额。
-
-## 开发与文档
-
-开始修改代码前，建议按以下顺序阅读：
-
-1. [开发文档入口](docs/README.md)
-2. [本地开发手册](docs/runbooks/local-development.md)
-3. [订单与 BOM MVP 架构](docs/architecture/order-bom-mvp.md)
-4. [订单、生产需求与生产执行关系](docs/architecture/order-demand-production-flow.md)
-5. [订单到生产状态机](docs/state-machines/order-to-production.md)
-6. [UI/UX 设计系统](DESIGN.md)
-
-模块规范：
-
-- [订单中心](docs/modules/orders/README.md)
-- [订单审核策略](docs/modules/orders/order-review-policy.md)
-- [BOM](docs/modules/boms/README.md)
-- [订单审核页面流](docs/ui-flows/order-review.md)
-
-新增后端模块时使用 [开发指南](docs/guides/create-backend-module.md) 与 [`templates/backend-module`](templates/backend-module/README.md)，并为 Policy、Service、API 和关键前端流程补充相应测试。
-
-## 质量门槛
-
-提交前至少执行：
+## 质量命令
 
 ```bash
 pnpm typecheck
@@ -197,10 +83,33 @@ pnpm lint
 pnpm test
 pnpm build
 pnpm build:api
+pnpm setup:local
+pnpm test:smoke
+pnpm docs:check
 ```
 
-涉及数据库结构时必须提交 migration；不要用 `prisma db push` 代替可审查的迁移。涉及核心业务流时，应在本地完整环境中补充或执行 `pnpm test:smoke`。
+涉及 schema 时还需从空数据库执行全部 migrations、重复运行 seed，并验证历史数据迁移。CI 定义见 [.github/workflows/ci.yml](.github/workflows/ci.yml)。
 
-## 规划
+## 阅读顺序
 
-当前阶段优先完成订单 → BOM → 生产需求的真实闭环，再逐步接入生产计划、MES、仓储、质量追溯、配送与 AI 排程。完整规划见 [ROADMAP.md](ROADMAP.md)。
+1. [AGENTS.md](AGENTS.md) — 所有人和智能体必须遵守的规则
+2. [产品边界](PRODUCT.md) — 为什么做、为谁做、当前不做什么
+3. [文档入口](docs/index.md) — 产品、领域、实现和验证事实源
+4. [统一术语](docs/domain/glossary.md) 与 [上下文地图](docs/domain/context-map.md)
+5. [订单到生产批次](docs/domain/order-to-batch.md) 与相关状态机
+6. 对应目录最近的 `AGENTS.md`
+
+## 仓库结构
+
+```text
+src/                  Next.js Web；正式页面与明确 Demo 表面
+apps/api/             NestJS + Prisma 模块化单体
+docs/product/         产品边界与 Build / Buy / Integrate
+docs/domain/          统一术语、流程和业务不变量
+docs/state-machines/  正式对象生命周期
+docs/decisions/       ADR 与待人工决策项
+docs/contracts/       API、数据库和事件契约
+docs/audits/          可复核的审查证据
+```
+
+许可证尚未决定。选项与影响见 [license-options.md](docs/decisions/license-options.md)；不要把仓库可见性当作授权许可。
