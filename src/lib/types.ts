@@ -69,11 +69,42 @@ export interface InventoryTransaction {
   unit: string;
   sourceType: string;
   sourceId: string | null;
+  workOrder: { id: string; code: string; productName: string } | null;
   referenceCode: string | null;
   note: string | null;
   actor: string;
+  workstationCode: string | null;
+  deviceId: string | null;
   occurredAt: string;
   createdAt: string;
+}
+
+export interface WorkOrderMaterialsView {
+  workOrder: {
+    id: string;
+    code: string;
+    productName: string;
+    plannedQuantity: string;
+    unit: string;
+    status: ProductionWorkOrderStatus;
+    revision: number;
+    workCenter: string;
+  };
+  requirements: Array<{
+    product: { id: string; code: string; name: string };
+    plannedQuantity: string;
+    issuedQuantity: string;
+    returnedQuantity: string;
+    netIssuedQuantity: string;
+    remainingQuantity: string;
+    unit: string;
+    availableLots: InventoryStockBalance[];
+    issuedLots: Array<{
+      balance: InventoryStockBalance;
+      netIssuedQuantity: string;
+    }>;
+  }>;
+  movements: InventoryTransaction[];
 }
 
 export interface BomItem {

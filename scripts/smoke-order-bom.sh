@@ -59,6 +59,26 @@ opening_balance="$(curl -fsS -X POST "${api_base}/inventory/opening-balances" -H
 opening_balance_retry="$(curl -fsS -X POST "${api_base}/inventory/opening-balances" -H 'content-type: application/json' -H 'Idempotency-Key: smoke-inventory-opening-base' -d "${opening_payload}")"
 inventory_stock="$(curl -fsS "${api_base}/inventory/stock")"
 
+work_order_materials_before="$(curl -fsS "${api_base}/inventory/work-orders/${work_order_id}/materials")"
+material_balance_id="$(jq -er '.requirements[] | select(.product.code == "RM01234") | .availableLots[] | select(.lot.code == "SMOKE-OPENING-BASE") | .id' <<<"${work_order_materials_before}")"
+material_balance_revision="$(jq -er --arg balanceId "${material_balance_id}" '.requirements[].availableLots[] | select(.id == $balanceId) | .revision' <<<"${work_order_materials_before}")"
+material_balance_before="$(jq -er --arg balanceId "${material_balance_id}" '.requirements[].availableLots[] | select(.id == $balanceId) | .onHandQuantity' <<<"${work_order_materials_before}")"
+material_unit="$(jq -er '.requirements[] | select(.product.code == "RM01234") | .unit' <<<"${work_order_materials_before}")"
+material_issue_payload="$(jq -n \
+  --arg stockBalanceId "${material_balance_id}" \
+  --argjson expectedBalanceRevision "${material_balance_revision}" \
+  --arg unit "${material_unit}" \
+  '{stockBalanceId: $stockBalanceId, expectedBalanceRevision: $expectedBalanceRevision, quantity: "0.100", unit: $unit, workstationCode: "Smoke 工位", deviceId: "SMOKE-DEVICE", actor: "Smoke test", note: "Smoke 工单领料"}')"
+material_issue="$(curl -fsS -X POST "${api_base}/inventory/work-orders/${work_order_id}/issues" -H 'content-type: application/json' -H "Idempotency-Key: smoke-wo-material-issue-${order_id}" -d "${material_issue_payload}")"
+material_issue_retry="$(curl -fsS -X POST "${api_base}/inventory/work-orders/${work_order_id}/issues" -H 'content-type: application/json' -H "Idempotency-Key: smoke-wo-material-issue-${order_id}" -d "${material_issue_payload}")"
+material_return_revision="$(jq -er '.balance.revision' <<<"${material_issue}")"
+material_return_payload="$(jq -n \
+  --arg stockBalanceId "${material_balance_id}" \
+  --argjson expectedBalanceRevision "${material_return_revision}" \
+  --arg unit "${material_unit}" \
+  '{stockBalanceId: $stockBalanceId, expectedBalanceRevision: $expectedBalanceRevision, quantity: "0.100", unit: $unit, workstationCode: "Smoke 工位", deviceId: "SMOKE-DEVICE", actor: "Smoke test", note: "Smoke 工单退料"}')"
+material_return="$(curl -fsS -X POST "${api_base}/inventory/work-orders/${work_order_id}/returns" -H 'content-type: application/json' -H "Idempotency-Key: smoke-wo-material-return-${order_id}" -d "${material_return_payload}")"
+
 bom_id="$(jq -er '.data[0].id' <<<"${boms}")"
 source_version_id="$(jq -er '.data[0].versionId' <<<"${boms}")"
 smoke_suffix="$(date +%s)"
@@ -123,6 +143,24 @@ jq -e --arg batchId "${batch_id}" '.data | any(.id == $batchId and .status == "r
 jq -e '.transaction.type == "opening_balance" and .balance.onHandQuantity == "5.000" and .balance.availableQuantity == "5.000"' <<<"${opening_balance}" >/dev/null
 jq -e --arg id "$(jq -r '.transaction.id' <<<"${opening_balance}")" '.transaction.id == $id and .balance.onHandQuantity == "5.000"' <<<"${opening_balance_retry}" >/dev/null
 jq -e '.data | any(.lot.code == "SMOKE-OPENING-BASE" and .onHandQuantity == "5.000")' <<<"${inventory_stock}" >/dev/null
+jq -e '.requirements | any(.product.code == "RM01234" and (.plannedQuantity | tonumber) > 0 and .remainingQuantity == .plannedQuantity)' <<<"${work_order_materials_before}" >/dev/null
+jq -e --arg before "${material_balance_before}" '
+  .transaction.type == "issue" and
+  .transaction.workOrder.id == .materials.workOrder.id and
+  .transaction.workstationCode == "Smoke 工位" and
+  .transaction.deviceId == "SMOKE-DEVICE" and
+  ((.balance.onHandQuantity | tonumber) == (($before | tonumber) - 0.1)) and
+  (.materials.requirements | any(.product.code == "RM01234" and .netIssuedQuantity == "0.100"))
+' <<<"${material_issue}" >/dev/null
+jq -e --arg transactionId "$(jq -r '.transaction.id' <<<"${material_issue}")" --argjson revision "${material_return_revision}" '
+  .transaction.id == $transactionId and .balance.revision == $revision
+' <<<"${material_issue_retry}" >/dev/null
+jq -e --arg before "${material_balance_before}" '
+  .transaction.type == "return" and
+  .balance.onHandQuantity == $before and
+  (.materials.requirements | any(.product.code == "RM01234" and .netIssuedQuantity == "0.000" and .remainingQuantity == .plannedQuantity)) and
+  ([.materials.movements[] | select(.product.code == "RM01234")] | length) == 2
+' <<<"${material_return}" >/dev/null
 jq -e --arg a "${status_a}" --arg b "${status_b}" '([$a, $b] | sort) == ["201", "409"]' <<<"{}" >/dev/null
 jq -e --arg versionA "${version_a}" --arg versionB "${version_b}" '
   [.versions[] | select(.version == $versionA or .version == $versionB) | .validityState] |
@@ -133,4 +171,4 @@ jq -e '
   (.versions | any(.validityState == "scheduled" and (.events | any(.type == "published"))))
 ' <<<"${timeline}" >/dev/null
 
-echo "Nora 订单/BOM、生产工单状态、批次库存与幂等 smoke test passed."
+echo "Nora 订单/BOM、生产工单状态、工单领退料、批次库存与幂等 smoke test passed."

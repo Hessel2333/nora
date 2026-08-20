@@ -1,7 +1,7 @@
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import { describe, expect, it } from "vitest";
-import { CreateOpeningBalanceDto } from "./inventory.dto.js";
+import { CreateOpeningBalanceDto, WorkOrderMaterialMovementDto } from "./inventory.dto.js";
 
 const validInput = {
   locationId: "10000000-0000-4000-8000-000000000001",
@@ -27,5 +27,20 @@ describe("CreateOpeningBalanceDto", () => {
     });
     const errors = await validate(input);
     expect(errors.map((error) => error.property)).toEqual(expect.arrayContaining(["quantity", "qualityStatus"]));
+  });
+});
+
+describe("WorkOrderMaterialMovementDto", () => {
+  it("requires positive inventory precision and audited device context", async () => {
+    const errors = await validate(plainToInstance(WorkOrderMaterialMovementDto, {
+      stockBalanceId: "50000000-0000-4000-8000-000000000001",
+      expectedBalanceRevision: 1,
+      quantity: "1.2345",
+      unit: "kg",
+      workstationCode: "",
+      deviceId: "WEB-DEVELOPMENT",
+    }));
+    expect(errors.some((error) => error.property === "quantity")).toBe(true);
+    expect(errors.some((error) => error.property === "workstationCode")).toBe(true);
   });
 });

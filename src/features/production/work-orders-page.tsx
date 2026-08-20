@@ -7,6 +7,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ClipboardList,
+  PackageOpen,
   Play,
   RefreshCw,
   Search,
@@ -27,6 +28,7 @@ import {
   workOrderCommandSuccessLabel,
   type WorkOrderAction,
 } from "./work-order-actions";
+import { WorkOrderMaterialModal } from "./work-order-material-modal";
 
 const productionWorkOrderStatus: Record<ProductionWorkOrder["status"], { label: string; tone: StatusTone }> = {
   pending: { label: "待开工", tone: "purple" },
@@ -63,6 +65,7 @@ export function WorkOrdersPage() {
   const [commandDraft, setCommandDraft] = useState<CommandDraft | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
+  const [materialWorkOrder, setMaterialWorkOrder] = useState<ProductionWorkOrder | null>(null);
   const commandKeys = useRef(new Map<string, string>());
 
   useEffect(() => {
@@ -213,6 +216,7 @@ export function WorkOrdersPage() {
           actionId={actionId}
           canWrite={mode !== "production"}
           onAction={requestAction}
+          onMaterials={setMaterialWorkOrder}
         />
       )}
 
@@ -232,6 +236,14 @@ export function WorkOrdersPage() {
           setReasonError("");
         }}
         onSubmit={submitReasonCommand}
+      />
+      <WorkOrderMaterialModal
+        workOrder={materialWorkOrder}
+        mode={mode}
+        open={Boolean(materialWorkOrder)}
+        onOpenChange={(open) => {
+          if (!open) setMaterialWorkOrder(null);
+        }}
       />
     </>
   );
@@ -262,6 +274,7 @@ function RealWorkOrderList({
   actionId,
   canWrite,
   onAction,
+  onMaterials,
 }: {
   rows: ProductionWorkOrder[];
   query: string;
@@ -270,6 +283,7 @@ function RealWorkOrderList({
   actionId: string;
   canWrite: boolean;
   onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
+  onMaterials: (workOrder: ProductionWorkOrder) => void;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -306,6 +320,7 @@ function RealWorkOrderList({
                     canWrite={canWrite}
                     mobile
                     onAction={onAction}
+                    onMaterials={onMaterials}
                   />
                 </article>
               );
@@ -329,7 +344,7 @@ function RealWorkOrderList({
                       <td className="max-w-[260px] px-5 py-4 text-xs text-[var(--text-secondary)]"><span className="line-clamp-2">{workOrder.operations.map((operation) => operation.name).join(" → ")}</span></td>
                       <td className="px-5 py-4"><Badge tone={status.tone}>{status.label}</Badge></td>
                       <td className="px-5 py-4">
-                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canWrite={canWrite} onAction={onAction} />
+                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canWrite={canWrite} onAction={onAction} onMaterials={onMaterials} />
                       </td>
                     </tr>
                   );
@@ -351,17 +366,26 @@ function WorkOrderActionButtons({
   canWrite,
   mobile = false,
   onAction,
+  onMaterials,
 }: {
   workOrder: ProductionWorkOrder;
   actionId: string;
   canWrite: boolean;
   mobile?: boolean;
   onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
+  onMaterials: (workOrder: ProductionWorkOrder) => void;
 }) {
   const actions = workOrderActions(workOrder.status);
-  if (!actions.length) return <span className="text-xs text-[var(--text-tertiary)]">无需操作</span>;
   return (
     <div className={`flex flex-wrap gap-2 ${mobile ? "mt-4 [&>button]:flex-1" : "min-w-[176px]"}`}>
+      <Button
+        size="sm"
+        variant="secondary"
+        aria-label={`${workOrder.code} 领退料`}
+        onClick={() => onMaterials(workOrder)}
+      >
+        <PackageOpen size={14} />领退料
+      </Button>
       {actions.map((action) => {
         const operationId = `${workOrder.id}:${workOrder.revision}:${action.command}`;
         return (

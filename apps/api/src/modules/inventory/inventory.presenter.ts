@@ -5,6 +5,7 @@ export const inventoryTransactionInclude = {
   location: true,
   product: true,
   lot: true,
+  workOrder: { select: { id: true, code: true, productName: true } },
 } satisfies Prisma.InventoryTransactionInclude;
 
 export const stockBalanceInclude = {
@@ -96,9 +97,16 @@ export function presentInventoryTransaction(transaction: InventoryTransactionRec
     unit: transaction.unit,
     sourceType: transaction.sourceType,
     sourceId: transaction.sourceId,
+    workOrder: transaction.workOrder ? {
+      id: transaction.workOrder.id,
+      code: transaction.workOrder.code,
+      productName: transaction.workOrder.productName,
+    } : null,
     referenceCode: transaction.referenceCode,
     note: transaction.note,
     actor: transaction.actor,
+    workstationCode: transaction.workstationCode,
+    deviceId: transaction.deviceId,
     occurredAt: formatLocalDateTime(transaction.occurredAt),
     createdAt: formatLocalDateTime(transaction.createdAt),
   };

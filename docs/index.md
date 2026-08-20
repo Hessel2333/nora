@@ -14,6 +14,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [生产批次分配功能规格](./product/production-batch-allocation.md)
 - [库存台账底座与期初入账功能规格](./product/inventory-ledger-foundation.md)
 - [生产工单现场状态控制功能规格](./product/work-order-execution-control.md)
+- [生产工单领料与退料功能规格](./product/work-order-material-movement.md)
 
 ## 2. 领域层：业务事实是什么
 
@@ -52,6 +53,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [2026-08-20 净菜 BOM 与 P0 复核](./audits/verification-2026-08-20.md)
 - [2026-08-20 库存台账底座验证](./audits/verification-2026-08-20-inventory.md)
 - [2026-08-20 生产工单现场状态控制验证](./audits/verification-2026-08-20-work-order.md)
+- [2026-08-20 生产工单领退料验证](./audits/verification-2026-08-20-work-order-material.md)
 - [本地开发](./runbooks/local-development.md)
 - [功能规格模板](./templates/feature-spec.md)
 - [工作流规格模板](./templates/workflow-spec.md)

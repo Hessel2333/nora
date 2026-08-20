@@ -11,6 +11,7 @@ import type {
   InventoryLotQualityStatus,
   InventoryStockBalance,
   InventoryTransaction,
+  WorkOrderMaterialsView,
 } from "./types";
 import { frontendAuditActor, getNoraRuntimeMode } from "./runtime-mode";
 
@@ -217,6 +218,35 @@ export const noraApi = {
 
   inventoryTransactions() {
     return request<{ data: InventoryTransaction[] }>("/inventory/transactions");
+  },
+
+  workOrderMaterials(id: string) {
+    return request<WorkOrderMaterialsView>(`/inventory/work-orders/${id}/materials`);
+  },
+
+  moveWorkOrderMaterial(
+    id: string,
+    movement: "issue" | "return",
+    input: {
+      stockBalanceId: string;
+      expectedBalanceRevision: number;
+      quantity: string;
+      unit: string;
+      workstationCode: string;
+      deviceId: string;
+      note?: string;
+    },
+    idempotencyKey: string,
+  ) {
+    return request<{
+      transaction: InventoryTransaction;
+      balance: InventoryStockBalance;
+      materials: WorkOrderMaterialsView;
+    }>(`/inventory/work-orders/${id}/${movement === "issue" ? "issues" : "returns"}`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ ...input, actor: auditActor }),
+    });
   },
 
   createOpeningBalance(

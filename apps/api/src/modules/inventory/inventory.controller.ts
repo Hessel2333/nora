@@ -1,6 +1,10 @@
-import { Body, Controller, Get, Headers, Post, Query } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
 import { ApiHeader, ApiTags } from "@nestjs/swagger";
-import { CreateOpeningBalanceDto, InventoryQueryDto } from "./dto/inventory.dto.js";
+import {
+  CreateOpeningBalanceDto,
+  InventoryQueryDto,
+  WorkOrderMaterialMovementDto,
+} from "./dto/inventory.dto.js";
 import { InventoryService } from "./inventory.service.js";
 
 @ApiTags("inventory")
@@ -30,5 +34,30 @@ export class InventoryController {
     @Headers("idempotency-key") idempotencyKey?: string,
   ) {
     return this.inventory.createOpeningBalance(input, idempotencyKey);
+  }
+
+  @Get("work-orders/:id/materials")
+  workOrderMaterials(@Param("id", new ParseUUIDPipe()) id: string) {
+    return this.inventory.getWorkOrderMaterials(id);
+  }
+
+  @Post("work-orders/:id/issues")
+  @ApiHeader({ name: "Idempotency-Key", required: true })
+  issueWorkOrderMaterial(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body() input: WorkOrderMaterialMovementDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
+  ) {
+    return this.inventory.issueWorkOrderMaterial(id, input, idempotencyKey);
+  }
+
+  @Post("work-orders/:id/returns")
+  @ApiHeader({ name: "Idempotency-Key", required: true })
+  returnWorkOrderMaterial(
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Body() input: WorkOrderMaterialMovementDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
+  ) {
+    return this.inventory.returnWorkOrderMaterial(id, input, idempotencyKey);
   }
 }

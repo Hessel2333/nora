@@ -462,6 +462,7 @@ model WorkOrder {
   createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
   events               WorkOrderEvent[]
+  inventoryTransactions InventoryTransaction[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status, scheduledStartAt])
@@ -545,6 +546,8 @@ model InventoryTransaction {
   product        Product                       @relation(fields: [productId], references: [id], onDelete: Restrict)
   lotId          String                        @map("lot_id") @db.Uuid
   lot            InventoryLot                  @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  workOrderId    String?                       @map("work_order_id") @db.Uuid
+  workOrder      WorkOrder?                    @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
   type           InventoryTransactionType
   direction      InventoryTransactionDirection
   quantity       Decimal                       @db.Decimal(14, 3)
@@ -554,6 +557,8 @@ model InventoryTransaction {
   referenceCode  String?                       @map("reference_code") @db.VarChar(80)
   note           String?                       @db.VarChar(500)
   actor          String                        @db.VarChar(80)
+  workstationCode String?                      @map("workstation_code") @db.VarChar(80)
+  deviceId       String?                       @map("device_id") @db.VarChar(120)
   idempotencyKey String                        @map("idempotency_key") @db.VarChar(80)
   occurredAt     DateTime                      @map("occurred_at") @db.Timestamptz(3)
   createdAt      DateTime                      @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -562,6 +567,7 @@ model InventoryTransaction {
   @@index([organizationId, occurredAt])
   @@index([organizationId, productId, lotId])
   @@index([organizationId, locationId, occurredAt])
+  @@index([organizationId, workOrderId, occurredAt])
   @@map("inventory_transactions")
 }
 

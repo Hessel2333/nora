@@ -112,7 +112,7 @@ export class ProductionBatchesService {
           quantityDecimal: new Prisma.Decimal(allocation.quantity),
         }));
         for (const allocation of requested) {
-          if (!allocation.quantityDecimal.isPositive()) throw new BadRequestException("分配数量必须大于 0");
+          if (!allocation.quantityDecimal.gt(0)) throw new BadRequestException("分配数量必须大于 0");
           const line = lineMap.get(allocation.productionDemandLineId)!;
           const allocated = line.allocations.reduce(
             (sum, current) => sum.add(current.allocatedQuantity),
@@ -186,7 +186,7 @@ export class ProductionBatchesService {
             new Prisma.Decimal(0),
           ));
           const fullyAllocated = demand.lines.every((line, index) => allocatedByLine[index].equals(line.requiredQuantity));
-          const partiallyAllocated = allocatedByLine.some((quantity) => quantity.isPositive());
+          const partiallyAllocated = allocatedByLine.some((quantity) => quantity.gt(0));
           const status = fullyAllocated ? "planned" : partiallyAllocated ? "partially_planned" : "pending_planning";
           await tx.productionDemand.update({ where: { id: demand.id }, data: { status } });
           await tx.productionDemandEvent.create({
@@ -233,7 +233,7 @@ export class ProductionBatchesService {
       const issue = getBatchTransitionIssue(batch.status, batch.revision, input.revision, "confirm");
       if (issue === "invalid_status") throw new ConflictException("只有草稿生产批次可以确认");
       if (issue === "revision_conflict") throw new ConflictException("生产批次已被更新，请刷新后重试");
-      if (!batch.plannedQuantity.isPositive() || !isCompleteRecipeSnapshot(batch.recipeSnapshot)) {
+      if (!batch.plannedQuantity.gt(0) || !isCompleteRecipeSnapshot(batch.recipeSnapshot)) {
         throw new UnprocessableEntityException("生产数量或冻结配方快照不完整，不能确认批次");
       }
 
