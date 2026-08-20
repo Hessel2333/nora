@@ -1,1 +1,5 @@
-import { OrdersPage } from "@/features/orders/orders-pages"; export default function Page(){return <OrdersPage/>}
+import { OrderCenterPage } from "@/features/orders/order-center-page";
+
+export default function Page() {
+  return <OrderCenterPage />;
+}

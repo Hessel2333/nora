@@ -1,1 +1,5 @@
-import { ProductionPlansPage } from "@/features/production/production-pages";export default function Page(){return <ProductionPlansPage/>}
+import { ProductionDemandWorkbenchPage } from "@/features/production/production-demand-workbench-page";
+
+export default function Page() {
+  return <ProductionDemandWorkbenchPage />;
+}

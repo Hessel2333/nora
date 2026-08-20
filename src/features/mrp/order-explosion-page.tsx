@@ -12,9 +12,9 @@ import {
   Workflow,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { HelpTip } from "@/components/help-tip";
 import {
   Badge,
-  Button,
   ButtonLink,
   Card,
   PageHeader,
@@ -51,17 +51,12 @@ export function OrderExplosionPage() {
     <>
       <PageHeader
         title="订单物料拆解"
+        metadata={<HelpTip title="拆解说明">当前场景用于体验多级配方与缺料分析，不会生成正式生产需求。</HelpTip>}
         actions={
-          <>
-            <ButtonLink href="/production/demand-flow" variant="secondary">
-              <Workflow size={16} />
-              查看日期需求流向
-            </ButtonLink>
-            <Button>
-              <PackageOpen size={16} />
-              生成生产需求
-            </Button>
-          </>
+          <ButtonLink href="/production/demand-flow" variant="secondary">
+            <Workflow size={16} />
+            查看日期需求流向
+          </ButtonLink>
         }
       />
 
@@ -178,9 +173,7 @@ export function OrderExplosionPage() {
       </Card>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#dce6f5] bg-[#f6f9ff] px-4 py-3 text-xs text-[#63718a]">
-        <span>
-          毛料需求 = 净用量 ÷ 出成率；现有库存扣除已占用后再计算本订单缺口。
-        </span>
+        <HelpTip title="缺口计算">毛料需求按净用量和出成率计算；现有库存扣除已占用后，再计算本订单缺口。</HelpTip>
         <Link
           href="/production/demand-flow"
           className="inline-flex items-center gap-1 font-semibold text-[#1768f2]"

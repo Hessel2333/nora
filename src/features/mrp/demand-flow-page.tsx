@@ -13,6 +13,7 @@ import {
   Workflow,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { HelpTip } from "@/components/help-tip";
 import {
   Badge,
   Button,
@@ -285,8 +286,7 @@ export function DemandFlowPage() {
       <Card className="overflow-hidden">
         <SectionTitle
           title="物料需求透视"
-          description="像电子表格一样按原料或菜品来源展开，保留原始单位和计算路径"
-          action={<Badge tone="success">图表联动</Badge>}
+          action={<span className="inline-flex items-center gap-1"><Badge tone="success">图表联动</Badge><HelpTip title="透视说明">可按原料或净菜产品来源展开，并保留原始单位和计算路径。</HelpTip></span>}
         />
         <DemandPivotTable
           materials={workspace.materials}
@@ -296,9 +296,7 @@ export function DemandFlowPage() {
       </Card>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e3e8f0] bg-white px-4 py-3 text-xs text-[#63718a]">
-        <span>
-          日期页用于聚合决策；需要核查单个订单计算来源时，回到订单拆解页。
-        </span>
+        <HelpTip title="查看范围">当前页面按日期聚合；如需核查单个订单的计算来源，请查看订单级拆解。</HelpTip>
         <Link
           href="/production/material-explosion"
           className="inline-flex items-center gap-1 font-semibold text-[#1768f2]"

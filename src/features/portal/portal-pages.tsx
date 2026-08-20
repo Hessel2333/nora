@@ -4,12 +4,11 @@ import {
   CheckCircle2,
   ChevronRight,
   Clock3,
-  Headphones,
   MapPin,
   PackageCheck,
   Truck,
 } from "lucide-react";
-import { Badge, Button, Card, PageHeader, Progress } from "@/components/ui";
+import { Badge, Card, PageHeader, Progress } from "@/components/ui";
 import { orders } from "@/lib/mock-data";
 import { formatCurrency, orderStatusLabel, statusTone } from "@/lib/utils";
 export function PortalOrders() {
@@ -18,12 +17,6 @@ export function PortalOrders() {
     <>
       <PageHeader
         title="我的订单"
-        actions={
-          <Button variant="secondary">
-            <Headphones size={16} />
-            联系客户经理
-          </Button>
-        }
       />
       <div className="space-y-3">
         {rows.map((o) => (
@@ -97,7 +90,7 @@ export function PortalOrderDetail({ id }: { id: string }) {
           />
           <div className="mt-6 grid gap-5 sm:grid-cols-4">
             {[
-              [CheckCircle2, "订单已确认", "07-14 08:52"],
+              [CheckCircle2, "订单已确认", "已确认"],
               [PackageCheck, "中央厨房生产", "进行中"],
               [Truck, "冷链配送", "等待生产完成"],
               [MapPin, "完成签收", "预计 11:00"],

@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import { LogOut, UserRound } from "lucide-react";
+import { useEffect } from "react";
+import { EnvironmentStatus, ProductionCapabilityBoundary } from "@/components/environment-status";
+import { useNoraStore } from "@/lib/store";
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
+  const hydrateBackend = useNoraStore((state) => state.hydrateBackend);
+  const mode = useNoraStore((state) => state.mode);
+  useEffect(() => { void hydrateBackend(); }, [hydrateBackend]);
   return (
     <div className="min-h-screen bg-[var(--canvas)]">
       <a
@@ -21,10 +29,11 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
               客户门户
             </span>
           </Link>
-          <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-3 text-sm">
+            <span className="hidden md:inline-flex"><EnvironmentStatus compact /></span>
             <span className="hidden items-center gap-2 sm:flex">
               <UserRound size={17} />
-              华润万家
+              {mode === "demo" ? "体验账号" : "未登录"}
             </span>
             <Link
               href="/"
@@ -37,7 +46,8 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main id="main-content" className="mx-auto max-w-6xl p-4 sm:p-6">
-        {children}
+        <div className="mb-4 md:hidden"><EnvironmentStatus compact /></div>
+        <ProductionCapabilityBoundary supported={false}>{children}</ProductionCapabilityBoundary>
       </main>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, ChevronRight, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, ChevronRight, ClipboardCheck, RotateCcw } from "lucide-react";
 import { Badge, ButtonLink, Card, PageHeader } from "@/components/ui";
 import { useNoraStore } from "@/lib/store";
 import type { SalesOrder } from "@/lib/types";
@@ -11,7 +11,14 @@ import { useShallow } from "zustand/react/shallow";
 const totalOf = (order: SalesOrder) =>
   order.lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
 
-export function OrderApprovalsPage() {
+export interface ApprovalFeedback {
+  result: "approved" | "returned";
+  orderCode: string;
+  demandCode?: string;
+  demo?: boolean;
+}
+
+export function OrderApprovalsPage({ feedback }: { feedback?: ApprovalFeedback }) {
   const rows = useNoraStore(
     useShallow((state) =>
       state.orders.filter((order) => order.status === "pending"),
@@ -21,12 +28,10 @@ export function OrderApprovalsPage() {
     <>
       <PageHeader
         title="订单审核"
-        metadata={
-          rows.length > 0
-            ? `${rows.length} 笔订单等待审核，审核通过后生成生产需求。`
-            : "当前没有等待审核的订单。"
-        }
+        metadata={rows.length > 0 ? `${rows.length} 笔待审核` : undefined}
       />
+
+      {feedback ? <ApprovalResult feedback={feedback} /> : null}
 
       {rows.length > 0 ? (
         <Card className="overflow-hidden">
@@ -119,5 +124,39 @@ export function OrderApprovalsPage() {
         </Card>
       )}
     </>
+  );
+}
+
+function ApprovalResult({ feedback }: { feedback: ApprovalFeedback }) {
+  const approved = feedback.result === "approved";
+  const Icon = approved ? CheckCircle2 : RotateCcw;
+  return (
+    <Card className="mb-4 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between" role="status">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${approved ? "bg-[var(--status-success-soft)] text-[var(--status-success)]" : "bg-[var(--status-warning-soft)] text-[var(--status-warning)]"}`}>
+          <Icon size={19} />
+        </span>
+        <div className="min-w-0">
+          <h2 className="font-semibold text-[var(--text-primary)]">
+            {approved ? `${feedback.orderCode} 已审核通过` : `${feedback.orderCode} 已退回修改`}
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-[var(--text-tertiary)]">
+            {approved
+              ? feedback.demo
+                ? "生产需求已创建并进入待计划。"
+                : feedback.demandCode
+                  ? `生产需求 ${feedback.demandCode} 已创建并进入待计划。`
+                  : "生产需求已创建并进入待计划，可在生产准备中查看编号。"
+              : "审核意见已保留在订单操作记录中，订单回到草稿等待修改。"}
+          </p>
+        </div>
+      </div>
+      {approved ? (
+        <ButtonLink href="/production/plans" variant="secondary" size="sm" className="w-full sm:w-auto">
+          查看生产准备
+          <ChevronRight size={14} />
+        </ButtonLink>
+      ) : null}
+    </Card>
   );
 }

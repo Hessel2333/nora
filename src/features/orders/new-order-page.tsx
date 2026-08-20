@@ -11,6 +11,7 @@ import {
   DocumentSummary,
   type EditableDocumentLine,
 } from "@/components/document-ui";
+import { HelpTip } from "@/components/help-tip";
 import {
   Badge,
   Button,
@@ -209,7 +210,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
               id: `event-${timestamp}-updated`,
               type: status === "pending" ? "submitted" : "status_changed",
               label: status === "pending" ? "修改并重新提交" : "更新草稿",
-              actor: "老板",
+              actor: "演示用户",
               at: changedAt,
             },
           ]
@@ -218,7 +219,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
               id: `event-${timestamp}-created`,
               type: "created",
               label: "创建订单",
-              actor: "老板",
+              actor: "演示用户",
               at: createdAt,
             },
             ...(status === "pending"
@@ -227,7 +228,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
                     id: `event-${timestamp}-submitted`,
                     type: "submitted" as const,
                     label: "提交审核",
-                    actor: "老板",
+                    actor: "演示用户",
                     at: createdAt,
                   },
                 ]
@@ -376,7 +377,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
                   >
                     <option>手工录入</option>
                     <option>客户下单</option>
-                    <option>AI预测</option>
+                    <option value="AI预测">销量预测</option>
                     <option>Excel导入</option>
                   </select>
                 </Field>
@@ -439,7 +440,7 @@ export function NewOrderPage({ orderId }: { orderId?: string }) {
       />
 
       {saveError && <p className="mb-3 text-sm text-[var(--status-danger)]" role="alert">{saveError}</p>}
-      <DocumentActionBar hint="保存草稿不会进入审核；提交审核后，审核人员可通过或退回修改。">
+      <DocumentActionBar hint={<HelpTip title="保存与提交">保存草稿不会进入审核；提交后由审核人员处理。</HelpTip>}>
         <ButtonLink
           href={existingOrder ? `/orders/${existingOrder.id}` : "/orders"}
           variant="ghost"

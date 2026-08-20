@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Building2, Filter, Plus, Search, UsersRound } from "lucide-react";
-import { Badge, Button, Card, Field, MetricCard, Modal, PageHeader, inputClass } from "@/components/ui";
+import { Building2, Filter, Search, UsersRound } from "lucide-react";
+import { Badge, Card, MetricCard, PageHeader, inputClass } from "@/components/ui";
 import { useNoraStore } from "@/lib/store";
 import { formatCurrency } from "@/lib/utils";
 
@@ -17,7 +17,6 @@ export function CustomersPage() {
   const customers = useNoraStore((state) => state.customers);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof customerStatuses)[number]["value"]>("all");
-  const [open, setOpen] = useState(false);
 
   const filtered = useMemo(
     () => customers.filter((customer) =>
@@ -28,15 +27,12 @@ export function CustomersPage() {
   );
 
   return <>
-    <PageHeader
-      title="客户中心"
-      actions={<Button onClick={() => setOpen(true)}><Plus size={16} />新建客户</Button>}
-    />
+    <PageHeader title="客户中心" />
 
     <div className="horizontal-snap -mx-4 mb-4 grid grid-flow-col auto-cols-[82%] gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid-flow-row sm:auto-cols-auto sm:grid-cols-2 sm:px-0 xl:grid-cols-4">
       <MetricCard label="有效客户" value={String(customers.filter((customer) => customer.status === "active").length)} suffix="家" icon={UsersRound} />
-      <MetricCard label="重点客户" value="2" suffix="家" icon={Building2} tone="purple" />
-      <MetricCard label="本月销售额" value="119.6" suffix="万元" icon={UsersRound} tone="success" change="较上月 +12.8%" />
+      <MetricCard label="重点客户" value={String(customers.filter((customer) => customer.tags.includes("重点客户")).length)} suffix="家" icon={Building2} tone="purple" />
+      <MetricCard label="累计销售额" value={(customers.reduce((sum, customer) => sum + customer.revenue, 0) / 10_000).toFixed(1)} suffix="万元" icon={UsersRound} tone="success" />
       <MetricCard label="待审核" value={String(customers.filter((customer) => customer.status === "pending").length)} suffix="家" icon={Filter} tone="warning" />
     </div>
 
@@ -103,22 +99,5 @@ export function CustomersPage() {
 
       {filtered.length === 0 && <div className="px-5 py-12 text-center"><Search className="mx-auto text-[#b8c1cf]" /><p className="mt-3 font-medium text-[#344054]">没有匹配的客户</p><p className="mt-1 text-sm text-[#98a2b3]">请调整搜索词或客户状态</p></div>}
     </Card>
-
-    <Modal
-      open={open}
-      onOpenChange={setOpen}
-      title="新建客户"
-      description="建立客户档案后可录入订单"
-      footer={<><Button variant="secondary" onClick={() => setOpen(false)}>取消</Button><Button onClick={() => setOpen(false)}>保存并提交审核</Button></>}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="客户名称" required><input className={inputClass} placeholder="请输入企业或机构名称" /></Field>
-        <Field label="客户分类"><select className={inputClass}><option>A类</option><option>B类</option><option>C类</option></select></Field>
-        <Field label="联系人" required><input className={inputClass} placeholder="姓名" /></Field>
-        <Field label="联系电话" required><input className={inputClass} placeholder="手机号码" /></Field>
-        <Field label="配送地址"><input className={inputClass} placeholder="详细地址" /></Field>
-        <Field label="结算方式"><select className={inputClass}><option>月结30天</option><option>月结45天</option><option>现结</option></select></Field>
-      </div>
-    </Modal>
   </>;
 }

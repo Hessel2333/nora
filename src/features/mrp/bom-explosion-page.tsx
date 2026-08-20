@@ -11,6 +11,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HelpTip } from "@/components/help-tip";
 import { cn } from "@/lib/utils";
 import {
   EXPLOSION_MODES,
@@ -25,7 +26,7 @@ import {
 } from "./bom-explosion-data";
 
 const modeHelp: Record<ExplosionMode, string> = {
-  finished: "成品视图 · 点击菜品开始拆解",
+  finished: "净菜包视图 · 点击套装开始拆解",
   semi: "半成品视图 · 点击任一层查看组成",
   raw: "原料视图 · 按加工组追踪毛料",
 };
@@ -160,7 +161,7 @@ export function BomExplosionPage() {
       <header className="relative z-30 flex min-h-[76px] flex-wrap items-center justify-between gap-4 border-b border-white/[0.08] bg-[#171112] px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <h1 className="text-lg font-semibold tracking-[-0.025em] text-white sm:text-[20px]">宫保鸡丁 · 配方爆炸图</h1>
+            <h1 className="text-lg font-semibold tracking-[-0.025em] text-white sm:text-[20px]">宫保鸡丁净菜包 · 用料拆解</h1>
             <span className="rounded-md border border-white/15 px-2 py-0.5 text-[10px] font-semibold text-white/72">BOM {FINISHED_PRODUCT.bomVersion}</span>
             <span className="text-xs text-white/55">{FINISHED_PRODUCT.quantity} {FINISHED_PRODUCT.unit}</span>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-[#77d9b6]"><span className="h-1.5 w-1.5 rounded-full bg-[#37c993]" />已生效</span>
@@ -271,11 +272,12 @@ function ExplosionStage({
             "explosion-stage-node focus-ring absolute left-1/2 top-1/2 z-10 h-[54%] w-[112%] -translate-x-1/2 -translate-y-1/2 sm:w-[min(76%,690px)]",
             sceneState !== "leaving" ? "scale-100 opacity-100" : "pointer-events-none scale-[.965] opacity-0",
           )}
-          aria-label="拆解宫保鸡丁成品"
+          aria-label="拆解宫保鸡丁净菜包"
           aria-hidden={sceneState === "leaving"}
           tabIndex={sceneState === "leaving" ? -1 : 0}
+          style={{ position: "absolute" }}
         >
-          <Image src={FINISHED_PRODUCT.image} alt="宫保鸡丁成品" fill priority sizes="(min-width:1280px) 680px, 70vw" className="object-contain drop-shadow-[0_30px_38px_rgba(0,0,0,.52)]" />
+          <Image src={FINISHED_PRODUCT.image} alt="宫保鸡丁净菜包演示图" fill priority sizes="(min-width:1280px) 680px, 70vw" className="object-contain drop-shadow-[0_30px_38px_rgba(0,0,0,.52)]" />
         </button>
       ) : null}
 
@@ -287,6 +289,7 @@ function ExplosionStage({
             "explosion-stage-support pointer-events-none absolute left-1/2 top-[81%] z-[2] h-[23%] w-[86%] -translate-x-1/2 sm:w-[min(58%,610px)]",
             bowlState === "active" ? "translate-y-0 scale-100 opacity-90" : "translate-y-7 scale-[.97] opacity-0",
           )}
+          style={{ position: "absolute" }}
         >
           <Image src={FINISHED_PRODUCT.bowlImage} alt="" fill sizes="(min-width:1280px) 600px, 58vw" className="object-contain drop-shadow-[0_28px_30px_rgba(0,0,0,.5)]" />
         </div>
@@ -327,10 +330,10 @@ function ExplosionStage({
       )) : (
         <>
           <div className={cn("pointer-events-none absolute left-[5%] top-[33%] hidden w-[30%] items-center gap-3 md:flex", phase === "leaving" ? "explosion-callout-exit" : "explosion-callout-enter")}>
-            <div><p className="text-sm font-semibold text-white">标准成品</p><p className="mt-1 text-xs text-white/48">净重 500 g · 1 份</p></div><span className="h-px flex-1 bg-white/28" /><span className="h-2 w-2 rounded-full border-2 border-white bg-[#d88e6a]" />
+            <div><p className="text-sm font-semibold text-white">标准净菜包</p><p className="mt-1 text-xs text-white/48">配方基准 1 份</p></div><span className="h-px flex-1 bg-white/28" /><span className="h-2 w-2 rounded-full border-2 border-white bg-[#d88e6a]" />
           </div>
           <div className={cn("pointer-events-none absolute right-[5%] top-[61%] hidden w-[29%] flex-row-reverse items-center gap-3 text-right md:flex", phase === "leaving" ? "explosion-callout-exit" : "explosion-callout-enter")} style={{ animationDelay: phase === "leaving" ? "0ms" : "90ms" }}>
-            <div><p className="text-sm font-semibold text-white">4 个配方层</p><p className="mt-1 text-xs text-white/48">向内聚合为一道成品</p></div><span className="h-px flex-1 bg-white/28" /><span className="h-2 w-2 rounded-full border-2 border-white bg-[#d88e6a]" />
+            <div><p className="text-sm font-semibold text-white">4 个配方层</p><p className="mt-1 text-xs text-white/48">分隔组配为一份净菜包</p></div><span className="h-px flex-1 bg-white/28" /><span className="h-2 w-2 rounded-full border-2 border-white bg-[#d88e6a]" />
           </div>
         </>
       )}
@@ -338,7 +341,7 @@ function ExplosionStage({
       <div className="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/10 bg-[#211a1b]/92 p-1.5 shadow-[0_14px_35px_rgba(0,0,0,.34)] backdrop-blur-xl">
         <button type="button" onClick={onPlay} className="explosion-action-button focus-ring inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full bg-[#f3eee8] px-3 text-xs font-semibold text-[#251d1e] shadow-[0_6px_18px_rgba(0,0,0,.18)] hover:-translate-y-px hover:bg-white sm:px-4">
           {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-          {isPlaying ? "暂停" : "演示拆解"}
+          {isPlaying ? "暂停" : "播放拆解"}
         </button>
         <button type="button" onClick={onReset} className="focus-ring inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-full px-2.5 text-xs font-medium text-white/65 transition hover:bg-white/[0.07] hover:text-white sm:px-3">
           <RotateCcw size={14} />重置
@@ -370,6 +373,7 @@ function SemiLayerNode({ layer, index, state, selected, onSelect }: { layer: Rec
         visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       )}
       style={{
+        position: "absolute",
         top: `${layer.stageTop}%`,
         transform: visible ? `translate(-50%, 0) scale(${selected ? 1.01 : 1})` : `translate(-50%, ${collapsedShift}px) scale(.9)`,
         transitionDelay: state === "leaving" ? `${(RECIPE_LAYERS.length - 1 - index) * 18}ms` : `${index * 52}ms`,
@@ -400,6 +404,7 @@ function RawGroupNode({ layer, index, state, selected, onSelect }: { layer: Reci
         visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       )}
       style={{
+        position: "absolute",
         top: `${layer.rawStageTop}%`,
         transform: visible ? `translate(-50%, 0) scale(${selected ? 1.01 : 1})` : "translate(-50%, 0) scale(.91)",
         transitionDelay: state === "leaving" ? `${(RECIPE_LAYERS.length - 1 - index) * 18}ms` : `${index * 52}ms`,
@@ -441,7 +446,7 @@ function RecipeInspector({ mode, phase, selectedLayer, selectedMaterialId, onSel
       <div key={`${mode}-${selectedLayer.id}`} className={cn("xl:flex xl:h-full xl:min-h-0 xl:flex-col", phase === "leaving" ? "explosion-inspector-exit" : "explosion-inspector-enter")}>
       <div className="shrink-0 border-b border-white/[0.08] p-4">
         <div className="flex items-center gap-3">
-          <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-[10px] border border-white/10 bg-black/25">
+          <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-[10px] border border-white/10 bg-black/25" style={{ position: "relative" }}>
             <Image src={mode === "raw" ? selectedLayer.rawImage : selectedLayer.image} alt="" fill sizes="80px" className="object-contain p-1" />
           </div>
           <div className="min-w-0">
@@ -487,7 +492,7 @@ function RecipeInspector({ mode, phase, selectedLayer, selectedMaterialId, onSel
       </div>
 
       <div className="shrink-0 border-t border-white/[0.08] px-4 py-3 text-[10px] leading-5 text-white/35">
-        毛料需求按半成品出成率反算，库存状态来自 2026-08-06 生产快照。
+        <HelpTip title="用量说明">毛料需求按半成品出成率反算，库存状态使用演示库存数据。</HelpTip>
       </div>
       </div>
       )}
@@ -499,7 +504,7 @@ function FinishedInspector({ phase, onChooseLayer }: { phase: StagePhase; onChoo
   return (
     <div className={cn("xl:flex xl:h-full xl:min-h-0 xl:flex-col", phase === "leaving" ? "explosion-inspector-exit" : "explosion-inspector-enter")}>
       <div className="border-b border-white/[0.08] p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/38">成品配方</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/38">净菜包配方</p>
         <h2 className="mt-1 text-lg font-semibold text-white">{FINISHED_PRODUCT.name}</h2>
         <p className="mt-1 text-[11px] text-white/42">{FINISHED_PRODUCT.code} · BOM {FINISHED_PRODUCT.bomVersion}</p>
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -512,7 +517,7 @@ function FinishedInspector({ phase, onChooseLayer }: { phase: StagePhase; onChoo
       <div className="space-y-1 px-3 pb-3">
         {RECIPE_LAYERS.map((layer) => (
           <button key={layer.id} type="button" onClick={() => onChooseLayer(layer, "semi")} className="focus-ring group flex w-full items-center gap-3 rounded-[10px] border border-transparent px-2 py-2 text-left transition hover:border-white/[0.08] hover:bg-white/[0.04]">
-            <span className="relative h-10 w-12 shrink-0 overflow-hidden rounded-lg bg-black/25"><Image src={layer.image} alt="" fill sizes="48px" className="object-contain p-0.5" /></span>
+            <span className="relative h-10 w-12 shrink-0 overflow-hidden rounded-lg bg-black/25" style={{ position: "relative" }}><Image src={layer.image} alt="" fill sizes="48px" className="object-contain p-0.5" /></span>
             <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-white/82">{layer.name}</span><span className="mt-0.5 block text-[10px] text-white/34">{layer.code} · {layer.station}</span></span>
             <span className="text-right"><b className="block text-xs text-white/76">{layer.quantity} g</b><small className="text-[9px] text-white/32">{layer.ratio}%</small></span>
           </button>

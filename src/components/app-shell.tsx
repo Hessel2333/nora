@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   Factory,
+  FlaskConical,
   LayoutDashboard,
   Menu,
   PackageSearch,
@@ -25,12 +26,12 @@ import {
   RotateCcw,
   Database,
   ClipboardList,
-  GitBranch,
-  Workflow,
-  Layers3,
+  CircleQuestionMark,
 } from "lucide-react";
+import { EnvironmentStatus, ProductionCapabilityBoundary } from "@/components/environment-status";
 import { cn } from "@/lib/utils";
 import { useNoraStore } from "@/lib/store";
+import { isDevelopmentSupportedPath, isProductionSupportedPath } from "@/lib/production-capabilities";
 import type { UserRole } from "@/lib/types";
 
 const roles: Array<{ value: UserRole; label: string; detail: string }> = [
@@ -42,60 +43,45 @@ const roles: Array<{ value: UserRole; label: string; detail: string }> = [
 
 const navigation = [
   {
-    label: "工作台",
+    label: "今日工作",
     items: [
       { label: "运营工作台", href: "/", icon: LayoutDashboard },
-      { label: "数字孪生", href: "/digital-twin", icon: Factory },
+      { label: "待审核订单", href: "/orders/approvals", icon: ClipboardCheck },
     ],
   },
   {
-    label: "客户与订单",
+    label: "订单与客户",
     items: [
-      { label: "客户中心", href: "/customers", icon: UsersRound },
       { label: "订单中心", href: "/orders", icon: ShoppingCart },
-      { label: "订单审核", href: "/orders/approvals", icon: ClipboardCheck },
+      { label: "客户中心", href: "/customers", icon: UsersRound },
     ],
   },
   {
-    label: "商品与供应",
+    label: "计划与执行",
+    items: [
+      { label: "生产准备", href: "/production/plans", icon: Route },
+      { label: "生产工单", href: "/production/work-orders", icon: ClipboardList },
+      { label: "MES 执行", href: "/mes", icon: ScanLine },
+      { label: "工厂态势", href: "/digital-twin", icon: Factory },
+    ],
+  },
+  {
+    label: "主数据",
     items: [
       { label: "产品档案", href: "/catalog/products", icon: PackageSearch },
-      { label: "产品与 BOM", href: "/catalog/boms", icon: Boxes },
+      { label: "生产配方", href: "/catalog/boms", icon: Boxes },
       { label: "基础档案", href: "/master-data/company", icon: Database },
     ],
   },
   {
-    label: "生产运营",
-    items: [
-      { label: "配方爆炸图", href: "/production/bom-explosion", icon: Layers3 },
-      {
-        label: "订单物料拆解",
-        href: "/production/material-explosion",
-        icon: GitBranch,
-      },
-      {
-        label: "日期需求流向",
-        href: "/production/demand-flow",
-        icon: Workflow,
-      },
-      { label: "生产计划", href: "/production/plans", icon: Route },
-      {
-        label: "生产工单",
-        href: "/production/work-orders",
-        icon: ClipboardList,
-      },
-      { label: "MES 执行", href: "/mes", icon: ScanLine },
-    ],
-  },
-  {
-    label: "平台与应用",
-    items: [{ label: "AI 销售预测", href: "/ai/forecast", icon: Sparkles }],
+    label: "分析",
+    items: [{ label: "销售预测", href: "/ai/forecast", icon: Sparkles }],
   },
 ];
 
 const commands = [
   ["创建销售订单", "/orders/new"],
-  ["查看生产计划", "/production/plans"],
+  ["查看生产准备", "/production/plans"],
   ["进入 MES 工位", "/mes"],
   ["配方爆炸图", "/production/bom-explosion"],
   ["订单物料拆解", "/production/material-explosion"],
@@ -104,7 +90,8 @@ const commands = [
   ["维护生产 BOM", "/catalog/boms"],
   ["客户中心", "/customers"],
   ["组织与产线", "/master-data/organization"],
-  ["AI 销售预测", "/ai/forecast"],
+  ["销售预测", "/ai/forecast"],
+  ["打开帮助中心", "/help"],
 ];
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -180,12 +167,20 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState("");
   const router = useRouter();
-  const { currentRole, setRole, resetDemo, backendStatus } = useNoraStore();
+  const pathname = usePathname();
+  const { currentRole, setRole, resetDemo, mode, runtimeMode, demoPreview, setDemoPreview } = useNoraStore();
   const hydrateBackend = useNoraStore((state) => state.hydrateBackend);
   const current = roles.find((role) => role.value === currentRole) ?? roles[0];
+  const isHelpCenter = pathname === "/help" || pathname.startsWith("/help/");
+  const capabilitySupported = mode === "production"
+    ? isProductionSupportedPath(pathname)
+    : isDevelopmentSupportedPath(pathname);
   const filtered = useMemo(
-    () => commands.filter(([label]) => label.includes(query.trim())),
-    [query],
+    () => commands.filter(([label, href]) =>
+      label.includes(query.trim())
+      && (mode !== "production" || isProductionSupportedPath(href)),
+    ),
+    [mode, query],
   );
 
   useEffect(() => {
@@ -232,25 +227,56 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-0.5 sm:gap-1">
+            {runtimeMode === "development" ? (
+              <button
+                type="button"
+                aria-pressed={demoPreview}
+                onClick={() => void setDemoPreview(!demoPreview)}
+                className={cn(
+                  "focus-ring hidden min-h-9 items-center gap-1.5 rounded-full border px-3 text-[11px] font-medium sm:inline-flex",
+                  demoPreview
+                    ? "border-[var(--status-ai)] bg-[var(--status-ai-soft)] text-[var(--status-ai)]"
+                    : "border-[var(--stroke)] bg-[var(--surface)] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]",
+                )}
+              >
+                <FlaskConical size={14} />
+                {demoPreview ? "退出演示" : "预览演示数据"}
+              </button>
+            ) : null}
+            <span className="hidden xl:inline-flex"><EnvironmentStatus compact /></span>
+            <Link
+              href="/help"
+              aria-label="打开帮助中心"
+              aria-current={pathname.startsWith("/help") ? "page" : undefined}
+              className={cn(
+                "focus-ring inline-flex min-h-11 min-w-11 items-center justify-center rounded-[var(--radius-control)]",
+                pathname.startsWith("/help")
+                  ? "bg-[var(--interactive-soft)] text-[var(--interactive)]"
+                  : "text-[var(--text-secondary)] hover:bg-[var(--surface-muted)] hover:text-[var(--text-primary)]",
+              )}
+            >
+              <CircleQuestionMark size={19} />
+            </Link>
             <DropdownMenu.Root>
               <DropdownMenu.Trigger
-                aria-label={`当前身份：${current.label}，打开身份菜单`}
-                className="focus-ring ml-0.5 flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-1.5 py-1.5 hover:bg-[var(--surface-muted)] sm:ml-1 sm:px-2"
+                aria-label={mode === "production" ? "生产环境尚未登录，身份切换已禁用" : `当前预览身份：${current.label}，打开身份菜单`}
+                disabled={mode === "production"}
+                className="focus-ring ml-0.5 flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-1.5 py-1.5 hover:bg-[var(--surface-muted)] disabled:cursor-default disabled:hover:bg-transparent sm:ml-1 sm:px-2"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] bg-[var(--interactive-soft)] text-[var(--interactive)]">
                   <UserRound size={17} />
                 </span>
                 <span className="hidden text-left md:block">
                   <span className="block text-xs font-medium text-[var(--text-primary)]">
-                    {current.label}
+                    {mode === "production" ? "未登录" : current.label}
                   </span>
                   <span className="block text-[10px] text-[var(--text-tertiary)]">
-                    美味中央厨房
+                    {mode === "demo" ? "体验账号" : mode === "production" ? "只读" : "开发账号"}
                   </span>
                 </span>
                 <ChevronDown
                   size={14}
-                  className="hidden text-[var(--text-tertiary)] sm:block"
+                  className={cn("hidden text-[var(--text-tertiary)] sm:block", mode === "production" && "invisible")}
                 />
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
@@ -297,7 +323,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                     className="focus-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-xs text-[var(--text-secondary)] outline-none hover:bg-[var(--surface-muted)]"
                   >
                     <RotateCcw size={15} />
-                    {backendStatus === "ready" ? "重新同步数据" : "重置演示数据"}
+                    {mode === "demo" ? "重置演示数据" : "重新同步数据"}
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
@@ -308,7 +334,14 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
       <main id="main-content" className="min-h-screen pt-16 lg:pl-[224px]">
         <div className="mx-auto max-w-[1680px] p-4 sm:p-5 lg:p-6">
-          {children}
+          <div className="mb-4 xl:hidden"><EnvironmentStatus compact /></div>
+          {isHelpCenter ? (
+            children
+          ) : (
+            <ProductionCapabilityBoundary supported={capabilitySupported}>
+              {children}
+            </ProductionCapabilityBoundary>
+          )}
         </div>
       </main>
 
