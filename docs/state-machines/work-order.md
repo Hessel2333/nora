@@ -6,7 +6,9 @@ stateDiagram-v2
   pending --> running: 开始
   running --> paused: 暂停
   paused --> running: 继续
-  running --> completed: 完成并提交产出
+  running --> awaiting_quality: 申报产出
+  awaiting_quality --> completed: 质量放行并入库
+  awaiting_quality --> exception: 质量不合格
   pending --> exception: 上报异常
   running --> exception: 上报异常
   paused --> exception: 上报异常
@@ -23,7 +25,7 @@ stateDiagram-v2
 
 批次从 `confirmed` 释放时原子创建一张 `WorkOrder.pending` 和 `WorkOrderEvent.created`，并复制批次冻结的商品、数量、单位、计划时间、BOM 版本和完整 v2 配方快照。
 
-首个现场控制切片实现 `pending → running → paused → running`、异常上报和异常恢复。每次命令原子同步生产批次投影并追加两边审计事件；development 可走真实 API，production 在可信身份接入前失败关闭。实际领料、产出、完工和质量仍未实现。
+当前已实现现场状态控制、工单领退料和首个产出质量闭环。`running → awaiting_quality` 创建待检产出与待检成品批次但不增加库存；质量放行在一个事务中追加检查、放行批次、成品入库并转为 `completed`，不合格转为 `exception` 且不入库。实际工序投料、损耗/报废、返工路线和让步接收仍未实现；production 在可信身份与职责权限接入前继续拒绝写入。
 
 ## 现场体验
 

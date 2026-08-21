@@ -15,6 +15,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [库存台账底座与期初入账功能规格](./product/inventory-ledger-foundation.md)
 - [生产工单现场状态控制功能规格](./product/work-order-execution-control.md)
 - [生产工单领料与退料功能规格](./product/work-order-material-movement.md)
+- [生产工单产出、质检与成品入库功能规格](./product/work-order-output-quality-release.md)
 
 ## 2. 领域层：业务事实是什么
 
@@ -24,6 +25,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [配方、版本、单位与损耗](./domain/recipe-and-uom.md)
 - [库存、批次与台账](./domain/inventory-and-lot.md)
 - [质量与追溯](./domain/quality-and-traceability.md)
+- [工单产出、质量放行与成品入库流程](./domain/work-order-output-quality-flow.md)
 - [完整业务样例](./domain/examples/store-orders-to-batch.md)
 
 ## 3. 契约层：系统如何保证不变量
@@ -41,6 +43,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [工单状态机](./state-machines/work-order.md)
 - [架构决策记录](./decisions/README.md)
 - [净配菜加工边界](./decisions/0006-net-prep-processing-boundary.md)
+- [质量放行控制成品入账与工单完工](./decisions/0007-quality-release-controls-finished-goods-posting.md)
 
 ## 4. 交付层：怎样协作与验证
 
@@ -54,6 +57,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [2026-08-20 库存台账底座验证](./audits/verification-2026-08-20-inventory.md)
 - [2026-08-20 生产工单现场状态控制验证](./audits/verification-2026-08-20-work-order.md)
 - [2026-08-20 生产工单领退料验证](./audits/verification-2026-08-20-work-order-material.md)
+- [2026-08-21 工单产出、质量与成品入库验证](./audits/verification-2026-08-21-work-order-output-quality.md)
 - [本地开发](./runbooks/local-development.md)
 - [功能规格模板](./templates/feature-spec.md)
 - [工作流规格模板](./templates/workflow-spec.md)

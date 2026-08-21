@@ -8,5 +8,6 @@
 | [0004](./0004-inventory-ledger.md) | 提议 | 库存追加式台账 |
 | [0005](./0005-operations-and-showroom-boundary.md) | 已接受 | 运营入口与展示入口分离 |
 | [0006](./0006-net-prep-processing-boundary.md) | 已接受 | 净配菜加工边界 |
+| [0007](./0007-quality-release-controls-finished-goods-posting.md) | 已接受 | 质量放行控制成品入账与工单完工 |
 
 新增 ADR 使用“背景、决策、后果、验证、恢复/迁移”结构。许可证尚未决定，候选见 [许可证选项](./license-options.md)。

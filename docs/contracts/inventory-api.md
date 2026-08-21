@@ -130,3 +130,15 @@
 | 409 | 批次号已存在、库存不足、超计划领料、超量退料、revision/工单状态冲突 | 刷新后更正数量或状态 |
 | 422 | 冻结配方不完整、非配方原料或单位不一致 | 修正生产依据后重试 |
 | 500 | 事务失败 | 保留原幂等键重试；系统不得部分入账 |
+
+## 成品产出入库
+
+成品入库不提供可绕过质量的独立库存命令。`POST /work-orders/:workOrderId/outputs/:outputId/inspect` 的合格放行事务追加：
+
+- `InventoryTransaction.type = produce`
+- `direction = inbound`
+- `sourceType = production_output`
+- 同时绑定 `workOrderId` 与 `workOrderOutputId`
+- 数量、单位、商品和批次与待检产出完全一致
+
+数据库约束要求 `production_output` 来源必须具备上述因果链、工位和设备，且每条产出最多一条入库流水。拒收产出没有库存流水或余额。
