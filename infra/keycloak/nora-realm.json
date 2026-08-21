@@ -1,0 +1,211 @@
+{
+  "realm": "nora",
+  "displayName": "Nora Local",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "bruteForceProtected": true,
+  "roles": {
+    "realm": [
+      { "name": "nora_sales_operator", "description": "Create, edit and submit orders" },
+      { "name": "nora_order_approver", "description": "Approve or return submitted orders" },
+      { "name": "nora_recipe_manager", "description": "Maintain recipe and process versions" },
+      { "name": "nora_planner", "description": "Create, confirm and release production batches" },
+      { "name": "nora_inventory_operator", "description": "Post opening stock and work-order material movements" },
+      { "name": "nora_production_operator", "description": "Operate work orders and report material usage and output" },
+      { "name": "nora_production_supervisor", "description": "Operate work orders and recover production exceptions" },
+      { "name": "nora_quality_inspector", "description": "Inspect reported production output" },
+      { "name": "nora_admin", "description": "Nora application administrator" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "nora-web",
+      "name": "Nora Web (local)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "http://localhost:3000",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3001/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000",
+        "http://localhost:3001"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*##http://localhost:3001/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "roles",
+        "profile",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ],
+      "protocolMappers": [
+        {
+          "name": "nora-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "nora-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "organization-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "organization_id",
+            "claim.name": "organization_id",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "nora-api",
+      "name": "Nora API",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "firstName": "Nora",
+      "lastName": "管理员",
+      "email": "admin@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_admin"]
+    },
+    {
+      "username": "sales",
+      "enabled": true,
+      "firstName": "订单",
+      "lastName": "录入员",
+      "email": "sales@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_sales_operator"]
+    },
+    {
+      "username": "reviewer",
+      "enabled": true,
+      "firstName": "订单",
+      "lastName": "审核员",
+      "email": "reviewer@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_order_approver"]
+    },
+    {
+      "username": "recipe",
+      "enabled": true,
+      "firstName": "配方",
+      "lastName": "管理员",
+      "email": "recipe@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_recipe_manager"]
+    },
+    {
+      "username": "planner",
+      "enabled": true,
+      "firstName": "生产",
+      "lastName": "计划员",
+      "email": "planner@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_planner"]
+    },
+    {
+      "username": "warehouse",
+      "enabled": true,
+      "firstName": "仓储",
+      "lastName": "操作员",
+      "email": "warehouse@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_inventory_operator"]
+    },
+    {
+      "username": "operator",
+      "enabled": true,
+      "firstName": "现场",
+      "lastName": "操作员",
+      "email": "operator@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_production_operator"]
+    },
+    {
+      "username": "supervisor",
+      "enabled": true,
+      "firstName": "生产",
+      "lastName": "主管",
+      "email": "supervisor@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_production_supervisor"]
+    },
+    {
+      "username": "quality",
+      "enabled": true,
+      "firstName": "质量",
+      "lastName": "检验员",
+      "email": "quality@nora.local",
+      "emailVerified": true,
+      "attributes": { "organization_id": ["00000000-0000-4000-8000-000000000001"] },
+      "credentials": [{ "type": "password", "value": "nora-local-only", "temporary": false }],
+      "realmRoles": ["nora_quality_inspector"]
+    }
+  ]
+}

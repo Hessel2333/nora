@@ -20,6 +20,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import { Badge, Button, ButtonLink, Card, Field, MetricCard, Modal, PageHeader, inputClass } from "@/components/ui";
 import { noraApi } from "@/lib/nora-api";
 import { useNoraStore } from "@/lib/store";
@@ -59,6 +60,8 @@ const batchStatusMeta: Record<ProductionBatch["status"], { label: string; tone: 
 
 export function ProductionDemandWorkbenchPage() {
   const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
+  const canPlan = can("planning:write");
   const backendStatus = useNoraStore((state) => state.backendStatus);
   const orders = useNoraStore((state) => state.orders);
   const boms = useNoraStore((state) => state.boms);
@@ -113,7 +116,7 @@ export function ProductionDemandWorkbenchPage() {
     : apiBatches;
 
   async function runBatchCommand(batch: ProductionBatch, command: "confirm" | "release") {
-    if (mode === "production" || batchAction) return;
+    if (!canPlan || batchAction) return;
     const actionId = `${batch.id}:${command}`;
     const idempotencyKey = commandKeys.current[actionId] ?? crypto.randomUUID();
     commandKeys.current[actionId] = idempotencyKey;
@@ -165,6 +168,7 @@ export function ProductionDemandWorkbenchPage() {
       <ProductionBatchQueue
         batches={batches}
         mode={mode}
+        canPlan={canPlan}
         actionId={batchAction}
         error={batchError}
         onCommand={runBatchCommand}
@@ -287,7 +291,7 @@ export function ProductionDemandWorkbenchPage() {
             <DemandPreparationPanel
               demand={selectedDemand}
               boms={boms}
-              canAllocate={mode !== "production"}
+              canAllocate={canPlan}
               onCreateBatch={(line) => setAllocationSeed({ demandId: selectedDemand.id, lineId: line.id })}
             />
           ) : null}
@@ -326,12 +330,14 @@ export function ProductionDemandWorkbenchPage() {
 function ProductionBatchQueue({
   batches,
   mode,
+  canPlan,
   actionId,
   error,
   onCommand,
 }: {
   batches: ProductionBatch[];
   mode: "demo" | "development" | "production";
+  canPlan: boolean;
   actionId: string;
   error: string;
   onCommand: (batch: ProductionBatch, command: "confirm" | "release") => void;
@@ -377,8 +383,8 @@ function ProductionBatchQueue({
                   {batch.status === "draft" ? (
                     <Button
                       size="sm"
-                      disabled={mode === "production" || Boolean(actionId)}
-                      title={mode === "production" ? "当前未登录生产身份，不能确认批次" : undefined}
+                      disabled={!canPlan || Boolean(actionId)}
+                      title={!canPlan ? "当前身份没有生产计划权限" : undefined}
                       onClick={() => onCommand(batch, "confirm")}
                     >
                       <CheckCircle2 size={14} />{confirming ? "确认中…" : "确认批次"}
@@ -387,8 +393,8 @@ function ProductionBatchQueue({
                   {batch.status === "confirmed" && batch.releaseReady ? (
                     <Button
                       size="sm"
-                      disabled={mode === "production" || Boolean(actionId)}
-                      title={mode === "production" ? "当前未登录生产身份，不能释放工单" : undefined}
+                      disabled={!canPlan || Boolean(actionId)}
+                      title={!canPlan ? "当前身份没有生产计划权限" : undefined}
                       onClick={() => onCommand(batch, "release")}
                     >
                       <Send size={14} />{releasing ? "释放中…" : "释放工单"}

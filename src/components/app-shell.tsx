@@ -28,12 +28,16 @@ import {
   ClipboardList,
   CircleQuestionMark,
   Warehouse,
+  LogOut,
+  LogIn,
 } from "lucide-react";
 import { EnvironmentStatus, ProductionCapabilityBoundary } from "@/components/environment-status";
 import { cn } from "@/lib/utils";
 import { useNoraStore } from "@/lib/store";
 import { isDevelopmentSupportedPath, isProductionSupportedPath } from "@/lib/production-capabilities";
 import type { UserRole } from "@/lib/types";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
+import type { NoraPermission } from "@/lib/identity";
 
 const roles: Array<{ value: UserRole; label: string; detail: string }> = [
   { value: "owner", label: "老板", detail: "全局经营与审批" },
@@ -42,12 +46,19 @@ const roles: Array<{ value: UserRole; label: string; detail: string }> = [
   { value: "customer", label: "客户", detail: "订单履约查询" },
 ];
 
-const navigation = [
+interface NavigationItem {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  permission?: NoraPermission;
+}
+
+const navigation: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: "今日工作",
     items: [
       { label: "运营工作台", href: "/", icon: LayoutDashboard },
-      { label: "待审核订单", href: "/orders/approvals", icon: ClipboardCheck },
+      { label: "待审核订单", href: "/orders/approvals", icon: ClipboardCheck, permission: "orders:approve" },
     ],
   },
   {
@@ -81,8 +92,8 @@ const navigation = [
   },
 ];
 
-const commands = [
-  ["创建销售订单", "/orders/new"],
+const commands: Array<[string, string, NoraPermission?]> = [
+  ["创建销售订单", "/orders/new", "orders:write"],
   ["查看生产准备", "/production/plans"],
   ["查看库存台账", "/inventory/stock"],
   ["进入 MES 工位", "/mes"],
@@ -90,7 +101,7 @@ const commands = [
   ["订单物料拆解", "/production/material-explosion"],
   ["日期需求流向", "/production/demand-flow"],
   ["打开数字孪生", "/digital-twin"],
-  ["维护生产 BOM", "/catalog/boms"],
+  ["维护生产 BOM", "/catalog/boms", "recipes:write"],
   ["客户中心", "/customers"],
   ["组织与产线", "/master-data/organization"],
   ["销售预测", "/ai/forecast"],
@@ -99,7 +110,18 @@ const commands = [
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  const activeHref = navigation
+  const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
+  const visibleNavigation = navigation
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => (
+        (mode !== "production" || isProductionSupportedPath(item.href))
+        && (!item.permission || can(item.permission))
+      )),
+    }))
+    .filter((group) => group.items.length > 0);
+  const activeHref = visibleNavigation
     .flatMap((group) => group.items)
     .filter((item) =>
       item.href === "/" ? pathname === "/" : pathname.startsWith(item.href),
@@ -120,7 +142,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         aria-label="主导航"
         className="nora-scrollbar flex-1 overflow-y-auto px-3 py-3"
       >
-        {navigation.map((group) => (
+        {visibleNavigation.map((group) => (
           <div key={group.label} className="mb-3">
             <p className="px-3 pb-1.5 pt-2 text-[10px] font-medium tracking-[0.08em] text-[var(--text-tertiary)]">
               {group.label}
@@ -151,16 +173,18 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </div>
         ))}
       </nav>
-      <div className="border-t border-[var(--stroke-subtle)] p-3">
-        <Link
-          href="/master-data/access"
-          onClick={onNavigate}
-          className="focus-ring flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
-        >
-          <Settings2 size={17} />
-          系统设置
-        </Link>
-      </div>
+      {mode !== "production" || isProductionSupportedPath("/master-data/access") ? (
+        <div className="border-t border-[var(--stroke-subtle)] p-3">
+          <Link
+            href="/master-data/access"
+            onClick={onNavigate}
+            className="focus-ring flex min-h-11 items-center gap-3 rounded-[var(--radius-control)] px-3 py-2.5 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+          >
+            <Settings2 size={17} />
+            系统设置
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -172,6 +196,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { currentRole, setRole, resetDemo, mode, runtimeMode, demoPreview, setDemoPreview } = useNoraStore();
+  const { identity, can, logout } = useNoraIdentity();
   const hydrateBackend = useNoraStore((state) => state.hydrateBackend);
   const current = roles.find((role) => role.value === currentRole) ?? roles[0];
   const isHelpCenter = pathname === "/help" || pathname.startsWith("/help/");
@@ -179,16 +204,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     ? isProductionSupportedPath(pathname)
     : isDevelopmentSupportedPath(pathname);
   const filtered = useMemo(
-    () => commands.filter(([label, href]) =>
+    () => commands.filter(([label, href, permission]) =>
       label.includes(query.trim())
-      && (mode !== "production" || isProductionSupportedPath(href)),
+      && (mode !== "production" || isProductionSupportedPath(href))
+      && (!permission || can(permission)),
     ),
-    [mode, query],
+    [can, mode, query],
   );
 
   useEffect(() => {
-    void hydrateBackend();
-  }, [hydrateBackend]);
+    if (!isHelpCenter) void hydrateBackend();
+  }, [hydrateBackend, isHelpCenter]);
 
   const changeRole = (role: UserRole) => {
     setRole(role);
@@ -246,7 +272,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {demoPreview ? "退出演示" : "预览演示数据"}
               </button>
             ) : null}
-            <span className="hidden xl:inline-flex"><EnvironmentStatus compact /></span>
+            {!isHelpCenter ? <span className="hidden xl:inline-flex"><EnvironmentStatus compact /></span> : null}
             <Link
               href="/help"
               aria-label="打开帮助中心"
@@ -260,26 +286,33 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             >
               <CircleQuestionMark size={19} />
             </Link>
-            <DropdownMenu.Root>
+            {mode === "production" && !identity ? (
+              <Link
+                href="/orders"
+                className="focus-ring ml-1 inline-flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-3 text-sm font-medium text-[var(--interactive)] hover:bg-[var(--interactive-soft)]"
+              >
+                <LogIn size={17} />
+                <span className="hidden sm:inline">进入工作台</span>
+              </Link>
+            ) : <DropdownMenu.Root>
               <DropdownMenu.Trigger
-                aria-label={mode === "production" ? "生产环境尚未登录，身份切换已禁用" : `当前预览身份：${current.label}，打开身份菜单`}
-                disabled={mode === "production"}
-                className="focus-ring ml-0.5 flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-1.5 py-1.5 hover:bg-[var(--surface-muted)] disabled:cursor-default disabled:hover:bg-transparent sm:ml-1 sm:px-2"
+                aria-label={mode === "production" ? `当前登录用户：${identity?.displayName ?? "未知"}，打开身份菜单` : `当前预览身份：${current.label}，打开身份菜单`}
+                className="focus-ring ml-0.5 flex min-h-11 items-center gap-2 rounded-[var(--radius-control)] px-1.5 py-1.5 hover:bg-[var(--surface-muted)] sm:ml-1 sm:px-2"
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-control)] bg-[var(--interactive-soft)] text-[var(--interactive)]">
                   <UserRound size={17} />
                 </span>
                 <span className="hidden text-left md:block">
                   <span className="block text-xs font-medium text-[var(--text-primary)]">
-                    {mode === "production" ? "未登录" : current.label}
+                    {mode === "production" ? identity?.displayName ?? "已登录" : current.label}
                   </span>
                   <span className="block text-[10px] text-[var(--text-tertiary)]">
-                    {mode === "demo" ? "体验账号" : mode === "production" ? "只读" : "开发账号"}
+                    {mode === "demo" ? "体验账号" : mode === "production" ? identity?.username ?? "生产账号" : "开发账号"}
                   </span>
                 </span>
                 <ChevronDown
                   size={14}
-                  className={cn("hidden text-[var(--text-tertiary)] sm:block", mode === "production" && "invisible")}
+                  className="hidden text-[var(--text-tertiary)] sm:block"
                 />
               </DropdownMenu.Trigger>
               <DropdownMenu.Portal>
@@ -288,10 +321,26 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   sideOffset={8}
                   className="z-50 min-w-56 rounded-[var(--radius-card)] bg-[var(--surface)] p-1.5 shadow-[var(--shadow-raised)] outline-none ring-1 ring-black/8"
                 >
-                  <p className="px-2 py-1.5 text-[10px] font-medium tracking-[0.08em] text-[var(--text-tertiary)]">
-                    切换身份
-                  </p>
-                  {roles.map((role) => (
+                  {mode === "production" ? (
+                    <>
+                      <p className="px-2 py-1.5 text-[10px] font-medium tracking-[0.08em] text-[var(--text-tertiary)]">当前登录身份</p>
+                      <div className="px-2.5 py-2">
+                        <p className="text-sm font-medium text-[var(--text-primary)]">{identity?.displayName}</p>
+                        <p className="mt-0.5 text-[11px] text-[var(--text-tertiary)]">{identity?.username}</p>
+                        <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{identity?.permissions.length ? `${identity.permissions.length} 项业务权限` : "当前为只读身份"}</p>
+                      </div>
+                      <DropdownMenu.Separator className="my-1 h-px bg-[var(--stroke-subtle)]" />
+                      <DropdownMenu.Item
+                        onSelect={() => void logout()}
+                        className="focus-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-xs text-[var(--text-secondary)] outline-none hover:bg-[var(--surface-muted)]"
+                      >
+                        <LogOut size={15} />退出登录
+                      </DropdownMenu.Item>
+                    </>
+                  ) : (
+                    <>
+                      <p className="px-2 py-1.5 text-[10px] font-medium tracking-[0.08em] text-[var(--text-tertiary)]">切换身份</p>
+                      {roles.map((role) => (
                     <DropdownMenu.Item
                       key={role.value}
                       onSelect={() => changeRole(role.value)}
@@ -319,25 +368,27 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                         </span>
                       </span>
                     </DropdownMenu.Item>
-                  ))}
-                  <DropdownMenu.Separator className="my-1 h-px bg-[var(--stroke-subtle)]" />
-                  <DropdownMenu.Item
-                    onSelect={resetDemo}
-                    className="focus-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-xs text-[var(--text-secondary)] outline-none hover:bg-[var(--surface-muted)]"
-                  >
-                    <RotateCcw size={15} />
-                    {mode === "demo" ? "重置演示数据" : "重新同步数据"}
-                  </DropdownMenu.Item>
+                      ))}
+                      <DropdownMenu.Separator className="my-1 h-px bg-[var(--stroke-subtle)]" />
+                      <DropdownMenu.Item
+                        onSelect={resetDemo}
+                        className="focus-ring flex min-h-11 cursor-pointer items-center gap-2 rounded-[var(--radius-control)] px-2.5 py-2 text-xs text-[var(--text-secondary)] outline-none hover:bg-[var(--surface-muted)]"
+                      >
+                        <RotateCcw size={15} />
+                        {mode === "demo" ? "重置演示数据" : "重新同步数据"}
+                      </DropdownMenu.Item>
+                    </>
+                  )}
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>
-            </DropdownMenu.Root>
+            </DropdownMenu.Root>}
           </div>
         </div>
       </header>
 
       <main id="main-content" className="min-h-screen pt-16 lg:pl-[224px]">
         <div className="mx-auto max-w-[1680px] p-4 sm:p-5 lg:p-6">
-          <div className="mb-4 xl:hidden"><EnvironmentStatus compact /></div>
+          {!isHelpCenter ? <div className="mb-4 xl:hidden"><EnvironmentStatus compact /></div> : null}
           {isHelpCenter ? (
             children
           ) : (

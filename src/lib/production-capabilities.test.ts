@@ -20,12 +20,8 @@ describe("production capability routes", () => {
   });
 
   it.each([
-    "/orders/new",
     "/orders/import",
     "/orders/reconciliation",
-    "/orders/approvals",
-    "/orders/550e8400-e29b-41d4-a716-446655440000/edit",
-    "/orders/550e8400-e29b-41d4-a716-446655440000/review",
     "/catalog/settings",
   ])("blocks unfinished or mutation route %s", (pathname) => {
     expect(isProductionSupportedPath(pathname)).toBe(false);
@@ -36,8 +32,8 @@ describe("production capability routes", () => {
     "/orders/approvals",
     "/orders/550e8400-e29b-41d4-a716-446655440000/edit",
     "/orders/550e8400-e29b-41d4-a716-446655440000/review",
-  ])("allows API-backed order mutation route only in development: %s", (pathname) => {
+  ])("allows authenticated API-backed order mutation route: %s", (pathname) => {
     expect(isDevelopmentSupportedPath(pathname)).toBe(true);
-    expect(isProductionSupportedPath(pathname)).toBe(false);
+    expect(isProductionSupportedPath(pathname)).toBe(true);
   });
 });

@@ -26,6 +26,8 @@ async function bootstrap() {
     .setTitle("Nora MVP API")
     .setDescription("订单中心与 BOM 本地 MVP 接口")
     .setVersion("0.1.0")
+    .addBearerAuth()
+    .addTag("auth")
     .addTag("health")
     .addTag("catalog")
     .addTag("orders")

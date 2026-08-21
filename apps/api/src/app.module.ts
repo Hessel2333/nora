@@ -10,9 +10,10 @@ import { WorkOrderOutputsModule } from "./modules/work-order-outputs/work-order-
 import { InventoryModule } from "./modules/inventory/inventory.module.js";
 import { WorkOrderMaterialUsagesModule } from "./modules/work-order-material-usages/work-order-material-usages.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
+import { IdentityModule } from "./common/identity/identity.module.js";
 
 @Module({
-  imports: [PrismaModule, CatalogModule, BomsModule, OrdersModule, ProductionDemandsModule, ProductionBatchesModule, WorkOrdersModule, WorkOrderOutputsModule, InventoryModule, WorkOrderMaterialUsagesModule],
+  imports: [IdentityModule, PrismaModule, CatalogModule, BomsModule, OrdersModule, ProductionDemandsModule, ProductionBatchesModule, WorkOrdersModule, WorkOrderOutputsModule, InventoryModule, WorkOrderMaterialUsagesModule],
   controllers: [HealthController],
 })
 export class AppModule {}

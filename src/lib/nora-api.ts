@@ -16,6 +16,8 @@ import type {
   WorkOrderOutputView,
 } from "./types";
 import { frontendAuditActor, getNoraRuntimeMode } from "./runtime-mode";
+import { currentAccessToken } from "./access-token";
+import type { NoraIdentity } from "./identity";
 
 export interface MaterialRequirements {
   orderId: string;
@@ -67,10 +69,12 @@ export class NoraApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getNoraRuntimeMode() === "production" ? await currentAccessToken() : undefined;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -99,6 +103,10 @@ function orderPayload(order: SalesOrder) {
 }
 
 export const noraApi = {
+  currentIdentity() {
+    return request<NoraIdentity>("/auth/me");
+  },
+
   async bootstrap() {
     const [orders, boms, customers, products] = await Promise.all([
       request<{ data: SalesOrder[] }>("/orders?pageSize=100"),

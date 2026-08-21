@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post } from "@nestjs/common";
-import { ApiHeader, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiHeader, ApiTags } from "@nestjs/swagger";
 import {
   InspectWorkOrderOutputDto,
   ReportWorkOrderOutputDto,
 } from "./dto/work-order-output.dto.js";
 import { WorkOrderOutputsService } from "./work-order-outputs.service.js";
+import { RequirePermission } from "../../common/identity/identity.decorators.js";
 
 @ApiTags("work-order-outputs")
+@ApiBearerAuth()
 @Controller("work-orders/:workOrderId/outputs")
 export class WorkOrderOutputsController {
   constructor(private readonly outputs: WorkOrderOutputsService) {}
@@ -17,6 +19,7 @@ export class WorkOrderOutputsController {
   }
 
   @Post()
+  @RequirePermission("execution:operate")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   report(
     @Param("workOrderId", new ParseUUIDPipe()) workOrderId: string,
@@ -27,6 +30,7 @@ export class WorkOrderOutputsController {
   }
 
   @Post(":outputId/inspect")
+  @RequirePermission("quality:inspect")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   inspect(
     @Param("workOrderId", new ParseUUIDPipe()) workOrderId: string,

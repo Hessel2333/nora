@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post } from "@nestjs/common";
-import { ApiHeader, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiHeader, ApiTags } from "@nestjs/swagger";
 import {
   CreateProductionBatchDto,
   ProductionBatchCommandDto,
 } from "./dto/production-batch.dto.js";
 import { ProductionBatchesService } from "./production-batches.service.js";
+import { RequirePermission } from "../../common/identity/identity.decorators.js";
 
 @ApiTags("production-batches")
+@ApiBearerAuth()
 @Controller("production-batches")
 export class ProductionBatchesController {
   constructor(private readonly productionBatches: ProductionBatchesService) {}
@@ -17,6 +19,7 @@ export class ProductionBatchesController {
   }
 
   @Post()
+  @RequirePermission("planning:write")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   create(
     @Body() input: CreateProductionBatchDto,
@@ -26,6 +29,7 @@ export class ProductionBatchesController {
   }
 
   @Post(":id/confirm")
+  @RequirePermission("planning:write")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   confirm(
     @Param("id", new ParseUUIDPipe()) id: string,
@@ -36,6 +40,7 @@ export class ProductionBatchesController {
   }
 
   @Post(":id/release")
+  @RequirePermission("planning:write")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   release(
     @Param("id", new ParseUUIDPipe()) id: string,

@@ -20,6 +20,7 @@ import { getOrderBomCoverage } from "@/lib/bom-structure";
 import { useNoraStore } from "@/lib/store";
 import type { OrderStatus, SalesOrder, StatusTone } from "@/lib/types";
 import { cn, formatCurrency, formatNumber, orderStatusLabel, statusTone } from "@/lib/utils";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 
 type OrderFilter = "attention" | "all" | OrderStatus;
 
@@ -56,7 +57,7 @@ function isAttentionOrder(order: SalesOrder) {
 export function OrderCenterPage() {
   const orders = useNoraStore((state) => state.orders);
   const boms = useNoraStore((state) => state.boms);
-  const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
   const backendStatus = useNoraStore((state) => state.backendStatus);
   const sortedOrders = useMemo(() => [...orders].sort((left, right) => parseDelivery(left.deliveryAt).getTime() - parseDelivery(right.deliveryAt).getTime()), [orders]);
   const initialOrder = sortedOrders.find((order) => order.status === "pending") ?? sortedOrders[0];
@@ -83,7 +84,7 @@ export function OrderCenterPage() {
     <>
       <PageHeader
         title="订单中心"
-        actions={mode !== "production" ? <ButtonLink href="/orders/new"><Plus size={16} />新建订单</ButtonLink> : undefined}
+        actions={can("orders:write") ? <ButtonLink href="/orders/new"><Plus size={16} />新建订单</ButtonLink> : undefined}
       />
 
       <Card className="mb-4 overflow-hidden">

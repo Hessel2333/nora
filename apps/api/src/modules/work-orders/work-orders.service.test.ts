@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { Prisma } from "../../generated/prisma/client.js";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_ORGANIZATION_ID } from "../../common/organization.js";
@@ -201,7 +201,7 @@ describe("WorkOrdersService execution commands", () => {
     try {
       const { service, prisma } = createTransitionService();
       await expect(service.start(workOrder.id, command, "work-order:start:key-4")).rejects.toBeInstanceOf(
-        BadRequestException,
+        UnauthorizedException,
       );
       expect(prisma.$transaction).not.toHaveBeenCalled();
     } finally {

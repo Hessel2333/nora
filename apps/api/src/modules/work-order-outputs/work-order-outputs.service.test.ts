@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException } from "@nestjs/common";
+import { ConflictException, UnauthorizedException } from "@nestjs/common";
 import { Prisma } from "../../generated/prisma/client.js";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_ORGANIZATION_ID } from "../../common/organization.js";
@@ -237,7 +237,7 @@ describe("WorkOrderOutputsService.report", () => {
         workstationCode: "净菜包装间",
         deviceId: "WEB-DEVELOPMENT",
         actor: "伪造用户",
-      }, "work-order-output:key-production")).rejects.toBeInstanceOf(BadRequestException);
+      }, "work-order-output:key-production")).rejects.toBeInstanceOf(UnauthorizedException);
       expect(prisma.$transaction).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllEnvs();

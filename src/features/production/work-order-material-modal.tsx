@@ -11,6 +11,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { Badge, Button, Card, Modal, Progress, inputClass } from "@/components/ui";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
+import { currentWebDeviceId } from "@/lib/device-context";
 import { NoraApiError, noraApi } from "@/lib/nora-api";
 import type {
   InventoryStockBalance,
@@ -37,6 +39,9 @@ export function WorkOrderMaterialModal({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { can } = useNoraIdentity();
+  const canMoveMaterial = can("inventory:write");
+  const canRecordUsage = can("execution:operate");
   const [view, setView] = useState<WorkOrderMaterialsView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -71,7 +76,7 @@ export function WorkOrderMaterialModal({
     balance: InventoryStockBalance,
     quantity: string,
   ) => {
-    if (!workOrder || !view || mode === "production") return;
+    if (!workOrder || !view || !canMoveMaterial) return;
     const numericQuantity = Number(quantity);
     if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
       setFeedback({ tone: "error", message: "请输入大于 0 的有效数量。" });
@@ -91,7 +96,7 @@ export function WorkOrderMaterialModal({
         quantity: normalizedQuantity,
         unit: balance.unit,
         workstationCode: view.workOrder.workCenter,
-        deviceId: "WEB-DEVELOPMENT",
+        deviceId: currentWebDeviceId(mode),
       }, idempotencyKey);
       setView(result.materials);
       commandKeys.current.delete(operationId);
@@ -120,7 +125,7 @@ export function WorkOrderMaterialModal({
     quantity: string,
     reason?: string,
   ) => {
-    if (!workOrder || !view || mode === "production") return;
+    if (!workOrder || !view || !canRecordUsage) return;
     const numericQuantity = Number(quantity);
     if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
       setFeedback({ tone: "error", message: "请输入大于 0 的有效核销数量。" });
@@ -146,7 +151,7 @@ export function WorkOrderMaterialModal({
         unit: issuedLot.balance.unit,
         reason: normalizedReason,
         workstationCode: view.workOrder.workCenter,
-        deviceId: "WEB-DEVELOPMENT",
+        deviceId: currentWebDeviceId(mode),
       }, idempotencyKey);
       setView(result.materials);
       commandKeys.current.delete(operationId);
@@ -180,10 +185,10 @@ export function WorkOrderMaterialModal({
       description={workOrder ? `${workOrder.code} · ${workOrder.productName}` : undefined}
       size="xl"
     >
-      {mode === "production" ? (
+      {!canMoveMaterial || !canRecordUsage ? (
         <div className="mb-4 rounded-xl border border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-sm">
-          <b>当前仅可查看。</b>
-          <span className="ml-1 text-[var(--text-secondary)]">生产身份与职责权限接入后才能领料、核销或退料。</span>
+          <b>当前职责范围：</b>
+          <span className="ml-1 text-[var(--text-secondary)]">{canMoveMaterial ? "可领料和退料" : "不可领退料"}；{canRecordUsage ? "可登记耗用和报损" : "不可登记耗用和报损"}。</span>
         </div>
       ) : null}
 
@@ -232,7 +237,8 @@ export function WorkOrderMaterialModal({
                 <MaterialRequirementCard
                   key={`${requirement.product.id}:${requirement.unit}`}
                   requirement={requirement}
-                  canWrite={mode !== "production"}
+                  canWrite={canMoveMaterial}
+                  canRecordUsage={canRecordUsage}
                   workOrderStatus={view.workOrder.status}
                   actionId={actionId}
                   onMove={moveMaterial}
@@ -299,6 +305,7 @@ export function WorkOrderMaterialModal({
 function MaterialRequirementCard({
   requirement,
   canWrite,
+  canRecordUsage,
   workOrderStatus,
   actionId,
   onMove,
@@ -306,6 +313,7 @@ function MaterialRequirementCard({
 }: {
   requirement: MaterialRequirement;
   canWrite: boolean;
+  canRecordUsage: boolean;
   workOrderStatus: WorkOrderMaterialsView["workOrder"]["status"];
   actionId: string;
   onMove: (movement: "issue" | "return", balance: InventoryStockBalance, quantity: string) => Promise<void>;
@@ -410,7 +418,7 @@ function MaterialRequirementCard({
                 key={issuedLot.balance.id}
                 issuedLot={issuedLot}
                 canWrite={canWrite}
-                canRecordUsage={canWrite && workOrderStatus === "running"}
+                canRecordUsage={canRecordUsage && workOrderStatus === "running"}
                 busy={Boolean(actionId)}
                 onReturn={(quantity) => onMove("return", issuedLot.balance, quantity)}
                 onUsage={(disposition, quantity, reason) => onUsage(disposition, issuedLot, quantity, reason)}

@@ -30,6 +30,7 @@ import {
   X,
 } from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import {
   Badge,
   Button,
@@ -158,7 +159,7 @@ export function BomWorkbenchPage({
   const router = useRouter();
   const boms = useNoraStore((state) => state.boms);
   const products = useNoraStore((state) => state.products);
-  const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
   const copyBomVersion = useNoraStore((state) => state.copyBomVersion);
   const updateBomVersion = useNoraStore((state) => state.updateBomVersion);
   const publishBomVersion = useNoraStore((state) => state.publishBomVersion);
@@ -341,7 +342,7 @@ export function BomWorkbenchPage({
               ))}
             </dl>
 
-            {mode !== "production" && (
+            {can("recipes:write") && (
               <div className="flex shrink-0 items-center gap-2">
                 {bom.status === "draft" ? (
                   <>

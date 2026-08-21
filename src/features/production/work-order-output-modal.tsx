@@ -11,6 +11,8 @@ import {
   Warehouse,
 } from "lucide-react";
 import { Badge, Button, Field, Modal, inputClass } from "@/components/ui";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
+import { currentWebDeviceId } from "@/lib/device-context";
 import { NoraApiError, noraApi } from "@/lib/nora-api";
 import type { NoraRuntimeMode } from "@/lib/runtime-mode";
 import type { ProductionWorkOrder, WorkOrderMaterialsView, WorkOrderOutputView } from "@/lib/types";
@@ -45,6 +47,9 @@ export function WorkOrderOutputModal({
   onOpenChange: (open: boolean) => void;
   onWorkOrderChanged: () => void;
 }) {
+  const { can } = useNoraIdentity();
+  const canReport = can("execution:operate");
+  const canInspect = can("quality:inspect");
   const [view, setView] = useState<WorkOrderOutputView | null>(null);
   const [materials, setMaterials] = useState<WorkOrderMaterialsView | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,10 +103,12 @@ export function WorkOrderOutputModal({
     () => view?.outputs.find((output) => output.status === "pending_quality") ?? null,
     [view],
   );
-  const canWrite = mode !== "production";
-
   const report = async () => {
     if (!workOrder || !view) return;
+    if (!canReport) {
+      setError("当前身份没有申报产出的权限。");
+      return;
+    }
     if (!materials?.reconciliation.ready) {
       setError("工单物料尚未领齐或完成去向核销，请先返回工单处理物料。");
       return;
@@ -143,7 +150,7 @@ export function WorkOrderOutputModal({
         expiresAt: expiry.toISOString(),
         varianceReason: varianceReason.trim() || undefined,
         workstationCode: view.workOrder.workCenter,
-        deviceId: "WEB-DEVELOPMENT",
+        deviceId: currentWebDeviceId(mode),
       }, key);
       setView(result);
       idempotencyKeys.current.delete(operationId);
@@ -158,6 +165,10 @@ export function WorkOrderOutputModal({
 
   const inspect = async (decision: "released" | "rejected") => {
     if (!view || !pendingOutput) return;
+    if (!canInspect) {
+      setError("当前身份没有质量判定权限。");
+      return;
+    }
     const commonIssue = !standardVersion.trim()
       ? "请填写质量标准版本"
       : !Number.isInteger(Number(sampleQuantity)) || Number(sampleQuantity) <= 0
@@ -199,7 +210,7 @@ export function WorkOrderOutputModal({
         locationId: decision === "released" ? locationId : undefined,
         note: inspectionNote.trim() || undefined,
         workstationCode: "质量检验台",
-        deviceId: "WEB-DEVELOPMENT",
+        deviceId: currentWebDeviceId(mode),
       }, key);
       setView(result);
       idempotencyKeys.current.delete(operationId);
@@ -241,9 +252,9 @@ export function WorkOrderOutputModal({
         </div>
       ) : view ? (
         <div className="space-y-5">
-          {mode === "production" ? (
+          {(view.workOrder.status === "running" && !canReport) || (view.workOrder.status === "awaiting_quality" && !canInspect) ? (
             <div className="rounded-xl border border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-sm" role="note">
-              <b>当前仅可查看。</b><span className="ml-1 text-[var(--text-secondary)]">质量身份与库位权限接入后才能报产或判定。</span>
+              <b>当前仅可查看。</b><span className="ml-1 text-[var(--text-secondary)]">当前身份没有{view.workOrder.status === "awaiting_quality" ? "质量判定" : "申报产出"}权限。</span>
             </div>
           ) : null}
           {feedback ? <div className="flex gap-2 rounded-xl border border-[var(--status-success)]/25 bg-[var(--status-success-soft)] px-4 py-3 text-sm text-[var(--status-success)]" role="status"><CheckCircle2 size={17} />{feedback}</div> : null}
@@ -275,19 +286,19 @@ export function WorkOrderOutputModal({
               )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={`实际产出数量（${view.workOrder.unit}）`} required>
-                  <input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" className={inputClass} disabled={!canWrite || Boolean(busy)} />
+                  <input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" className={inputClass} disabled={!canReport || Boolean(busy)} />
                 </Field>
                 <Field label="成品批次号" required>
-                  <input value={lotCode} onChange={(event) => setLotCode(event.target.value)} className={inputClass} maxLength={64} placeholder="扫描或输入批次号" disabled={!canWrite || Boolean(busy)} />
+                  <input value={lotCode} onChange={(event) => setLotCode(event.target.value)} className={inputClass} maxLength={64} placeholder="扫描或输入批次号" disabled={!canReport || Boolean(busy)} />
                 </Field>
                 <Field label="有效期" required>
-                  <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className={inputClass} disabled={!canWrite || Boolean(busy)} />
+                  <input type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} className={inputClass} disabled={!canReport || Boolean(busy)} />
                 </Field>
                 <Field label="数量差异原因" hint="实际数量与计划一致时可不填。">
-                  <input value={varianceReason} onChange={(event) => setVarianceReason(event.target.value)} className={inputClass} maxLength={500} placeholder="例如：修整损耗导致少产 2 份" disabled={!canWrite || Boolean(busy)} />
+                  <input value={varianceReason} onChange={(event) => setVarianceReason(event.target.value)} className={inputClass} maxLength={500} placeholder="例如：修整损耗导致少产 2 份" disabled={!canReport || Boolean(busy)} />
                 </Field>
               </div>
-              <div className="mt-4 flex justify-end"><Button disabled={!canWrite || !materials?.reconciliation.ready || Boolean(busy)} onClick={() => void report()}>{busy === "report" ? <RefreshCw className="animate-spin" size={15} /> : <PackageCheck size={15} />}确认报产</Button></div>
+              <div className="mt-4 flex justify-end"><Button disabled={!canReport || !materials?.reconciliation.ready || Boolean(busy)} onClick={() => void report()}>{busy === "report" ? <RefreshCw className="animate-spin" size={15} /> : <PackageCheck size={15} />}确认报产</Button></div>
             </section>
           ) : null}
 
@@ -299,27 +310,27 @@ export function WorkOrderOutputModal({
                 <p className="mt-2 text-[var(--text-secondary)]">{pendingOutput.quantity} {pendingOutput.unit} · 冻结温度依据：{outputTemperatureRange(pendingOutput)}</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-3">
-                <Field label="质量标准版本" required><input value={standardVersion} onChange={(event) => setStandardVersion(event.target.value)} className={inputClass} maxLength={80} placeholder="例如 Q-NET-PREP-V1.2" disabled={!canWrite || Boolean(busy)} /></Field>
-                <Field label="抽样数量" required><input value={sampleQuantity} onChange={(event) => setSampleQuantity(event.target.value)} inputMode="numeric" className={inputClass} disabled={!canWrite || Boolean(busy)} /></Field>
-                <Field label="实测温度（℃）" required><input value={measuredTemperature} onChange={(event) => setMeasuredTemperature(event.target.value)} inputMode="decimal" className={inputClass} disabled={!canWrite || Boolean(busy)} /></Field>
+                <Field label="质量标准版本" required><input value={standardVersion} onChange={(event) => setStandardVersion(event.target.value)} className={inputClass} maxLength={80} placeholder="例如 Q-NET-PREP-V1.2" disabled={!canInspect || Boolean(busy)} /></Field>
+                <Field label="抽样数量" required><input value={sampleQuantity} onChange={(event) => setSampleQuantity(event.target.value)} inputMode="numeric" className={inputClass} disabled={!canInspect || Boolean(busy)} /></Field>
+                <Field label="实测温度（℃）" required><input value={measuredTemperature} onChange={(event) => setMeasuredTemperature(event.target.value)} inputMode="decimal" className={inputClass} disabled={!canInspect || Boolean(busy)} /></Field>
               </div>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                <QualityCheck label="外观符合标准" checked={appearancePassed} onChange={setAppearancePassed} disabled={!canWrite || Boolean(busy)} />
-                <QualityCheck label="包装封口完好" checked={packageSealPassed} onChange={setPackageSealPassed} disabled={!canWrite || Boolean(busy)} />
-                <QualityCheck label="批次标签正确" checked={labelPassed} onChange={setLabelPassed} disabled={!canWrite || Boolean(busy)} />
+                <QualityCheck label="外观符合标准" checked={appearancePassed} onChange={setAppearancePassed} disabled={!canInspect || Boolean(busy)} />
+                <QualityCheck label="包装封口完好" checked={packageSealPassed} onChange={setPackageSealPassed} disabled={!canInspect || Boolean(busy)} />
+                <QualityCheck label="批次标签正确" checked={labelPassed} onChange={setLabelPassed} disabled={!canInspect || Boolean(busy)} />
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field label="合格入库库位" required>
-                  <select value={locationId} onChange={(event) => setLocationId(event.target.value)} className={inputClass} disabled={!canWrite || Boolean(busy)}>
+                  <select value={locationId} onChange={(event) => setLocationId(event.target.value)} className={inputClass} disabled={!canInspect || Boolean(busy)}>
                     <option value="">请选择成品库</option>
                     {view.finishedGoodsLocations.map((location) => <option key={location.id} value={location.id}>{location.code} · {location.name}</option>)}
                   </select>
                 </Field>
-                <Field label="检验说明" hint="判定不合格时必填。"><input value={inspectionNote} onChange={(event) => setInspectionNote(event.target.value)} className={inputClass} maxLength={500} placeholder="记录异常、处置或补充说明" disabled={!canWrite || Boolean(busy)} /></Field>
+                <Field label="检验说明" hint="判定不合格时必填。"><input value={inspectionNote} onChange={(event) => setInspectionNote(event.target.value)} className={inputClass} maxLength={500} placeholder="记录异常、处置或补充说明" disabled={!canInspect || Boolean(busy)} /></Field>
               </div>
               <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="danger" disabled={!canWrite || Boolean(busy)} onClick={() => void inspect("rejected")}>{busy === "rejected" ? <RefreshCw className="animate-spin" size={15} /> : null}判定不合格</Button>
-                <Button variant="success" disabled={!canWrite || Boolean(busy)} onClick={() => void inspect("released")}>{busy === "released" ? <RefreshCw className="animate-spin" size={15} /> : <CheckCircle2 size={15} />}合格放行并入库</Button>
+                <Button variant="danger" disabled={!canInspect || Boolean(busy)} onClick={() => void inspect("rejected")}>{busy === "rejected" ? <RefreshCw className="animate-spin" size={15} /> : null}判定不合格</Button>
+                <Button variant="success" disabled={!canInspect || Boolean(busy)} onClick={() => void inspect("released")}>{busy === "released" ? <RefreshCw className="animate-spin" size={15} /> : <CheckCircle2 size={15} />}合格放行并入库</Button>
               </div>
             </section>
           ) : null}

@@ -33,6 +33,7 @@ import {
   inputClass,
 } from "@/components/ui";
 import { useNoraStore } from "@/lib/store";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import { useShallow } from "zustand/react/shallow";
 import type { SalesOrder } from "@/lib/types";
 import {
@@ -59,6 +60,7 @@ const totalOf = (order: SalesOrder) =>
 export function OrdersPage() {
   const orders = useNoraStore((state) => state.orders);
   const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const rows = useMemo(
@@ -85,7 +87,7 @@ export function OrdersPage() {
                 导入订单
               </ButtonLink>
             )}
-            {mode !== "production" && (
+            {can("orders:write") && (
               <ButtonLink href="/orders/new">
                 <Plus size={16} />
                 新建订单

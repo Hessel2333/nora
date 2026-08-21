@@ -117,7 +117,7 @@ describe("BomsService.publish", () => {
     process.env.NORA_MODE = "production";
     const { service, tx } = createPublishService();
     try {
-      await expect(service.publish("version-new", { revision: 1 })).rejects.toThrow("身份认证尚未接入");
+      await expect(service.publish("version-new", { revision: 1 })).rejects.toThrow("缺少受信任身份");
       expect(tx.bomVersion.update).not.toHaveBeenCalled();
     } finally {
       if (previousMode === undefined) delete process.env.NORA_MODE;

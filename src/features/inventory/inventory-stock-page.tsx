@@ -13,6 +13,7 @@ import {
   Warehouse,
 } from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import { Badge, Button, Card, Field, MetricCard, Modal, PageHeader, inputClass } from "@/components/ui";
 import { noraApi } from "@/lib/nora-api";
 import { useNoraStore } from "@/lib/store";
@@ -90,6 +91,8 @@ function demoStock(products: Product[]): InventoryStockBalance[] {
 
 export function InventoryStockPage() {
   const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
+  const canManageInventory = can("inventory:write");
   const backendStatus = useNoraStore((state) => state.backendStatus);
   const backendError = useNoraStore((state) => state.backendError);
   const products = useNoraStore((state) => state.products);
@@ -159,7 +162,7 @@ export function InventoryStockPage() {
   const selectedProduct = activeProducts.find((product) => product.id === form.productId);
 
   function openOpeningBalance() {
-    if (mode === "production") return;
+    if (!canManageInventory) return;
     setSubmitError("");
     setForm((current) => ({
       ...current,
@@ -244,8 +247,8 @@ export function InventoryStockPage() {
         )}
         actions={(
           <span className="flex items-center gap-2">
-            {mode === "production" ? <span className="text-xs text-[var(--text-tertiary)]">登录并取得仓储权限后可登记</span> : null}
-            <Button onClick={openOpeningBalance} disabled={mode === "production" || locations.length === 0}>
+            {!canManageInventory ? <span className="text-xs text-[var(--text-tertiary)]">当前身份没有库存登记权限</span> : null}
+            <Button onClick={openOpeningBalance} disabled={!canManageInventory || locations.length === 0}>
               <PackagePlus size={16} />登记期初库存
             </Button>
           </span>
@@ -283,7 +286,7 @@ export function InventoryStockPage() {
                 {locations.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
               </select>
             </div>
-            {rows.length ? <InventoryRows rows={rows} /> : <InventoryEmpty filtered={stock.length > 0} canCreate={mode !== "production" && locations.length > 0} onCreate={openOpeningBalance} />}
+            {rows.length ? <InventoryRows rows={rows} /> : <InventoryEmpty filtered={stock.length > 0} canCreate={canManageInventory && locations.length > 0} onCreate={openOpeningBalance} />}
           </Card>
 
           <Card className="mt-4 overflow-hidden">

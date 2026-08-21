@@ -21,6 +21,9 @@
     "test:api": "pnpm --dir apps/api test",
     "test:smoke": "bash scripts/smoke-order-bom.sh",
     "setup:local": "pnpm db:up && pnpm db:deploy && pnpm db:seed",
+    "auth:up": "docker compose up -d keycloak && node scripts/wait-keycloak.mjs",
+    "auth:down": "docker compose stop keycloak",
+    "auth:verify": "node scripts/verify-local-identity.mjs",
     "db:up": "docker compose up -d --wait postgres",
     "db:down": "docker compose down",
     "db:generate": "pnpm --dir apps/api prisma:generate",
@@ -40,6 +43,7 @@
     "clsx": "2.1.1",
     "echarts": "6.1.0",
     "echarts-for-react": "3.0.6",
+    "keycloak-js": "26.2.4",
     "lucide-react": "1.24.0",
     "next": "15.5.20",
     "react": "19.2.7",
@@ -57,11 +61,11 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@types/three": "^0.185.4",
+    "concurrently": "10.0.5",
     "eslint": "^9.39.0",
     "eslint-config-next": "15.5.20",
     "tailwindcss": "4.3.2",
     "typescript": "5.9.3",
-    "vitest": "3.2.4",
-    "concurrently": "10.0.5"
+    "vitest": "3.2.4"
   }
 }

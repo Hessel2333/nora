@@ -5,7 +5,7 @@ const readOnlyEntityDetailRoutes = [
   new RegExp(`^/catalog/boms/${uuid}$`, "i"),
 ];
 
-const developmentEntityMutationRoutes = [
+const entityMutationRoutes = [
   new RegExp(`^/orders/${uuid}/edit$`, "i"),
   new RegExp(`^/orders/${uuid}/review$`, "i"),
 ];
@@ -20,7 +20,7 @@ const productionReadRoutes = new Set([
   "/inventory/stock",
 ]);
 
-const developmentWriteRoutes = new Set(["/orders/new", "/orders/approvals"]);
+const authenticatedWriteRoutes = new Set(["/orders/new", "/orders/approvals"]);
 
 function isHelpRoute(pathname: string) {
   return pathname === "/help" || pathname.startsWith("/help/");
@@ -34,13 +34,13 @@ function isHelpRoute(pathname: string) {
 export function isProductionSupportedPath(pathname: string) {
   return isHelpRoute(pathname)
     || productionReadRoutes.has(pathname)
+    || authenticatedWriteRoutes.has(pathname)
+    || entityMutationRoutes.some((pattern) => pattern.test(pathname))
     || readOnlyEntityDetailRoutes.some((pattern) => pattern.test(pathname));
 }
 
-/** Development may expose API-backed writes that production still blocks until
- * real identity and permission enforcement are connected. */
+/** Development exposes the same API-backed vertical slices with its explicit
+ * server-owned development identity. */
 export function isDevelopmentSupportedPath(pathname: string) {
-  return isProductionSupportedPath(pathname)
-    || developmentWriteRoutes.has(pathname)
-    || developmentEntityMutationRoutes.some((pattern) => pattern.test(pathname));
+  return isProductionSupportedPath(pathname);
 }

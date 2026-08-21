@@ -14,9 +14,11 @@ import {
   Search,
 } from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import { Badge, Button, Card, Field, Modal, PageHeader, Progress, inputClass } from "@/components/ui";
 import { NoraApiError, noraApi } from "@/lib/nora-api";
 import { useNoraStore } from "@/lib/store";
+import { currentWebDeviceId } from "@/lib/device-context";
 import type {
   ProductionWorkOrder,
   ProductionWorkOrderCommand,
@@ -54,6 +56,9 @@ interface ActionFeedback {
 
 export function WorkOrdersPage() {
   const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
+  const canOperate = can("execution:operate");
+  const canSupervise = can("execution:supervise");
   const backendStatus = useNoraStore((state) => state.backendStatus);
   const backendError = useNoraStore((state) => state.backendError);
   const demoWorkOrders = useNoraStore((state) => state.workOrders);
@@ -114,7 +119,8 @@ export function WorkOrdersPage() {
     command: ProductionWorkOrderCommand,
     commandReason?: string,
   ) => {
-    if (mode === "production") return;
+    const allowed = command.startsWith("recover") ? canSupervise : canOperate;
+    if (!allowed) return;
     const operationId = `${workOrder.id}:${workOrder.revision}:${command}`;
     const idempotencyKey = commandKeys.current.get(operationId) ?? `work-order:${crypto.randomUUID()}`;
     commandKeys.current.set(operationId, idempotencyKey);
@@ -124,7 +130,7 @@ export function WorkOrdersPage() {
       const updated = await noraApi.transitionWorkOrder(workOrder.id, command, {
         revision: workOrder.revision,
         workstationCode: workOrder.workCenter,
-        deviceId: "WEB-DEVELOPMENT",
+        deviceId: currentWebDeviceId(mode),
         reason: commandReason,
       }, idempotencyKey);
       setApiWorkOrders((rows) => rows.map((row) => row.id === updated.id ? updated : row));
@@ -181,10 +187,10 @@ export function WorkOrdersPage() {
         )}
       />
 
-      {mode === "production" ? (
+      {!canOperate && !canSupervise ? (
         <Card className="mb-4 border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-sm" role="note">
           <b>当前仅可查看。</b>
-          <span className="ml-1 text-[var(--text-secondary)]">生产身份与工位权限接入后，才能开始、暂停或上报异常。</span>
+          <span className="ml-1 text-[var(--text-secondary)]">当前身份没有工单执行或异常恢复权限。</span>
         </Card>
       ) : null}
 
@@ -218,7 +224,8 @@ export function WorkOrdersPage() {
           onQueryChange={setQuery}
           hasAny={apiWorkOrders.length > 0}
           actionId={actionId}
-          canWrite={mode !== "production"}
+          canOperate={canOperate}
+          canSupervise={canSupervise}
           onAction={requestAction}
           onMaterials={setMaterialWorkOrder}
           onOutputs={setOutputWorkOrder}
@@ -286,7 +293,8 @@ function RealWorkOrderList({
   onQueryChange,
   hasAny,
   actionId,
-  canWrite,
+  canOperate,
+  canSupervise,
   onAction,
   onMaterials,
   onOutputs,
@@ -296,7 +304,8 @@ function RealWorkOrderList({
   onQueryChange: (query: string) => void;
   hasAny: boolean;
   actionId: string;
-  canWrite: boolean;
+  canOperate: boolean;
+  canSupervise: boolean;
   onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
   onMaterials: (workOrder: ProductionWorkOrder) => void;
   onOutputs: (workOrder: ProductionWorkOrder) => void;
@@ -333,7 +342,8 @@ function RealWorkOrderList({
                   <WorkOrderActionButtons
                     workOrder={workOrder}
                     actionId={actionId}
-                    canWrite={canWrite}
+                    canOperate={canOperate}
+                    canSupervise={canSupervise}
                     mobile
                     onAction={onAction}
                     onMaterials={onMaterials}
@@ -361,7 +371,7 @@ function RealWorkOrderList({
                       <td className="max-w-[260px] px-5 py-4 text-xs text-[var(--text-secondary)]"><span className="line-clamp-2">{workOrder.operations.map((operation) => operation.name).join(" → ")}</span></td>
                       <td className="px-5 py-4"><Badge tone={status.tone}>{status.label}</Badge></td>
                       <td className="px-5 py-4">
-                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canWrite={canWrite} onAction={onAction} onMaterials={onMaterials} onOutputs={onOutputs} />
+                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canOperate={canOperate} canSupervise={canSupervise} onAction={onAction} onMaterials={onMaterials} onOutputs={onOutputs} />
                       </td>
                     </tr>
                   );
@@ -380,7 +390,8 @@ function RealWorkOrderList({
 function WorkOrderActionButtons({
   workOrder,
   actionId,
-  canWrite,
+  canOperate,
+  canSupervise,
   mobile = false,
   onAction,
   onMaterials,
@@ -388,7 +399,8 @@ function WorkOrderActionButtons({
 }: {
   workOrder: ProductionWorkOrder;
   actionId: string;
-  canWrite: boolean;
+  canOperate: boolean;
+  canSupervise: boolean;
   mobile?: boolean;
   onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
   onMaterials: (workOrder: ProductionWorkOrder) => void;
@@ -415,13 +427,14 @@ function WorkOrderActionButtons({
       </Button>
       {actions.map((action) => {
         const operationId = `${workOrder.id}:${workOrder.revision}:${action.command}`;
+        const allowed = action.command.startsWith("recover") ? canSupervise : canOperate;
         return (
           <Button
             key={action.command}
             size="sm"
             variant={action.tone}
-            disabled={!canWrite || Boolean(actionId)}
-            title={!canWrite ? "生产身份与工位权限接入后可操作" : undefined}
+            disabled={!allowed || Boolean(actionId)}
+            title={!allowed ? "当前身份没有执行此工单命令的权限" : undefined}
             aria-label={`${workOrder.code} ${action.label}`}
             onClick={() => onAction(workOrder, action)}
           >

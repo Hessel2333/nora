@@ -17,5 +17,17 @@ services:
     volumes:
       - nora_postgres_data:/var/lib/postgresql/data
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.1
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-nora-local-only}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "18080:8080"
+    volumes:
+      - ./infra/keycloak/nora-realm.json:/opt/keycloak/data/import/nora-realm.json:ro
+
 volumes:
   nora_postgres_data:

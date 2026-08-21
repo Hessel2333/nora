@@ -1,13 +1,15 @@
 import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post } from "@nestjs/common";
-import { ApiHeader, ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiHeader, ApiTags } from "@nestjs/swagger";
 import {
   RecoverWorkOrderDto,
   WorkOrderCommandDto,
   WorkOrderReasonCommandDto,
 } from "./dto/work-order.dto.js";
 import { WorkOrdersService } from "./work-orders.service.js";
+import { RequirePermission } from "../../common/identity/identity.decorators.js";
 
 @ApiTags("work-orders")
+@ApiBearerAuth()
 @Controller("work-orders")
 export class WorkOrdersController {
   constructor(private readonly workOrders: WorkOrdersService) {}
@@ -18,6 +20,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/start")
+  @RequirePermission("execution:operate")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   start(
     @Param("id", new ParseUUIDPipe()) id: string,
@@ -28,6 +31,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/pause")
+  @RequirePermission("execution:operate")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   pause(
     @Param("id", new ParseUUIDPipe()) id: string,
@@ -38,6 +42,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/resume")
+  @RequirePermission("execution:operate")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   resume(
     @Param("id", new ParseUUIDPipe()) id: string,
@@ -48,6 +53,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/report-exception")
+  @RequirePermission("execution:operate")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   reportException(
     @Param("id", new ParseUUIDPipe()) id: string,
@@ -58,6 +64,7 @@ export class WorkOrdersController {
   }
 
   @Post(":id/recover")
+  @RequirePermission("execution:supervise")
   @ApiHeader({ name: "Idempotency-Key", required: true })
   recover(
     @Param("id", new ParseUUIDPipe()) id: string,

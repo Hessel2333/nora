@@ -1,8 +1,9 @@
 import { Controller, Get, Query } from "@nestjs/common";
-import { ApiTags } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CatalogService } from "./catalog.service.js";
 
 @ApiTags("catalog")
+@ApiBearerAuth()
 @Controller("catalog")
 export class CatalogController {
   constructor(private readonly catalog: CatalogService) {}

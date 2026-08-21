@@ -18,6 +18,7 @@ import {
   Tag,
 } from "lucide-react";
 import { HelpTip } from "@/components/help-tip";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import {
   Badge,
   Button,
@@ -310,7 +311,7 @@ function minimumPublishTime(bom: Bom) {
 
 export function BomsPage({ detail = false, bomId }: { detail?: boolean; bomId?: string }) {
   const boms = useNoraStore((state) => state.boms);
-  const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
   const bom = boms.find((item) => item.id === bomId) ?? boms[0];
   const copyBomVersion = useNoraStore((state) => state.copyBomVersion);
   const publishBomVersion = useNoraStore((state) => state.publishBomVersion);
@@ -381,13 +382,11 @@ export function BomsPage({ detail = false, bomId }: { detail?: boolean; bomId?: 
         title={detail ? `${bom.productName} · ${bom.version}` : "生产配方"}
         actions={
           <>
-            {mode !== "production" && (
-              <Button variant="secondary" onClick={() => setCompare((v) => !v)}>
-                <GitCompare size={16} />
-                {compare ? "关闭对比" : "版本对比"}
-              </Button>
-            )}
-            {mode !== "production" && (
+            <Button variant="secondary" onClick={() => setCompare((v) => !v)}>
+              <GitCompare size={16} />
+              {compare ? "关闭对比" : "版本对比"}
+            </Button>
+            {can("recipes:write") && (
               <Button disabled={saving} onClick={() => void runVersionAction()}>
                 {bom.status === "draft" ? <ShieldCheck size={16} /> : <PackagePlus size={16} />}
                 {bom.status === "draft" ? "发布版本" : "复制新版本"}

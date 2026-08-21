@@ -1,5 +1,13 @@
 import { NewOrderPage } from "@/features/orders/new-order-page";
+import { PermissionBoundary } from "@/features/auth/permission-boundary";
 
 export default function Page() {
-  return <NewOrderPage />;
+  return (
+    <PermissionBoundary
+      permission="orders:write"
+      detail="当前账号可以查看订单，但不能新建订单。请联系管理员分配订单录入权限。"
+    >
+      <NewOrderPage />
+    </PermissionBoundary>
+  );
 }

@@ -31,6 +31,7 @@ import {
 } from "@/components/ui";
 import { explodeDraftOrder, type ExplodedMaterial } from "@/lib/bom-structure";
 import { noraApi, type MaterialRequirements } from "@/lib/nora-api";
+import { useNoraIdentity } from "@/features/auth/nora-identity-provider";
 import { useNoraStore } from "@/lib/store";
 import type { ProductionDemand, SalesOrder } from "@/lib/types";
 import {
@@ -93,6 +94,7 @@ export function OrderDetailPage({ id }: { id: string }) {
   const submit = useNoraStore((state) => state.submitOrder);
   const reconcile = useNoraStore((state) => state.reconcileOrder);
   const mode = useNoraStore((state) => state.mode);
+  const { can } = useNoraIdentity();
   const [demand, setDemand] = useState<ProductionDemand>();
   const [demandLoading, setDemandLoading] = useState(false);
   const [demandError, setDemandError] = useState("");
@@ -185,7 +187,7 @@ export function OrderDetailPage({ id }: { id: string }) {
         }
         actions={
           <>
-            {mode !== "production" && order.status === "draft" && (
+            {can("orders:write") && order.status === "draft" && (
               <>
                 <ButtonLink href={`/orders/${order.id}/edit`} variant="secondary">
                   <FilePenLine size={16} />
@@ -197,7 +199,7 @@ export function OrderDetailPage({ id }: { id: string }) {
                 </Button>
               </>
             )}
-            {mode !== "production" && order.status === "pending" && (
+            {can("orders:approve") && order.status === "pending" && (
               <ButtonLink href={`/orders/${order.id}/review`}>
                 <ClipboardCheck size={16} />
                 审核订单
