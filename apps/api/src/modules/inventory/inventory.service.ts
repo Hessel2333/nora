@@ -10,6 +10,11 @@ import { DEFAULT_ORGANIZATION_ID } from "../../common/organization.js";
 import { resolveAuditActor } from "../../common/runtime-mode.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { isExecutableRecipeSnapshot } from "../boms/recipe-snapshot.js";
+import { remainingIssuedQuantity } from "../work-order-material-usages/work-order-material-usage-policy.js";
+import {
+  presentWorkOrderMaterialUsage,
+  workOrderMaterialUsageInclude,
+} from "../work-order-material-usages/work-order-material-usages.presenter.js";
 import type {
   CreateOpeningBalanceDto,
   InventoryQueryDto,
@@ -47,6 +52,7 @@ export class InventoryService {
         onHandQuantity: { gt: 0 },
         ...(query.productId ? { productId: query.productId } : {}),
         ...(query.locationId ? { locationId: query.locationId } : {}),
+        ...(query.lotId ? { lotId: query.lotId } : {}),
         ...(query.qualityStatus ? { lot: { qualityStatus: query.qualityStatus } } : {}),
       },
       include: stockBalanceInclude,
@@ -264,20 +270,33 @@ export class InventoryService {
           throw new UnprocessableEntityException(`领退料必须使用库存基础单位 ${balance.product.unit}`);
         }
 
-        const previousMovements = await tx.inventoryTransaction.findMany({
-          where: {
-            organizationId: DEFAULT_ORGANIZATION_ID,
-            workOrderId: id,
-            productId: balance.productId,
-            type: { in: ["issue", "return"] },
-          },
-          select: {
-            type: true,
-            quantity: true,
-            locationId: true,
-            lotId: true,
-          },
-        });
+        const [previousMovements, previousUsages] = await Promise.all([
+          tx.inventoryTransaction.findMany({
+            where: {
+              organizationId: DEFAULT_ORGANIZATION_ID,
+              workOrderId: id,
+              productId: balance.productId,
+              type: { in: ["issue", "return"] },
+            },
+            select: {
+              type: true,
+              quantity: true,
+              locationId: true,
+              lotId: true,
+            },
+          }),
+          tx.workOrderMaterialUsage.findMany({
+            where: {
+              organizationId: DEFAULT_ORGANIZATION_ID,
+              workOrderId: id,
+              locationId: balance.locationId,
+              productId: balance.productId,
+              lotId: balance.lotId,
+              unit: requirement.unit,
+            },
+            select: { disposition: true, quantity: true },
+          }),
+        ]);
         const productNetIssued = previousMovements.reduce(
           (total, current) => current.type === "issue"
             ? total.add(current.quantity)
@@ -292,6 +311,13 @@ export class InventoryService {
               : total.sub(current.quantity),
             new Prisma.Decimal(0),
           );
+        const lotConsumed = previousUsages
+          .filter((usage) => usage.disposition === "consumed")
+          .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0));
+        const lotScrapped = previousUsages
+          .filter((usage) => usage.disposition === "scrapped")
+          .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0));
+        const lotReturnable = remainingIssuedQuantity(lotNetIssued, lotConsumed, lotScrapped);
 
         if (movement === "issue") {
           if (balance.lot.qualityStatus !== "released") {
@@ -307,8 +333,8 @@ export class InventoryService {
             const remaining = Prisma.Decimal.max(requirement.plannedQuantity.sub(productNetIssued), 0);
             throw new ConflictException(`超过计划剩余领料量 ${remaining.toFixed(3)} ${requirement.unit}`);
           }
-        } else if (quantity.greaterThan(lotNetIssued)) {
-          throw new ConflictException(`超过该批次净领用量 ${Prisma.Decimal.max(lotNetIssued, 0).toFixed(3)} ${requirement.unit}`);
+        } else if (quantity.greaterThan(lotReturnable)) {
+          throw new ConflictException(`超过该批次待核销量 ${lotReturnable.toFixed(3)} ${requirement.unit}`);
         }
 
         const updated = await tx.stockBalanceProjection.updateMany({
@@ -395,7 +421,7 @@ export class InventoryService {
       workOrder.plannedQuantity,
     );
     const productIds = [...new Set(requirements.map((requirement) => requirement.productId))];
-    const [movements, balances] = await Promise.all([
+    const [movements, usages, balances] = await Promise.all([
       tx.inventoryTransaction.findMany({
         where: {
           organizationId: DEFAULT_ORGANIZATION_ID,
@@ -403,6 +429,15 @@ export class InventoryService {
           type: { in: ["issue", "return"] },
         },
         include: inventoryTransactionInclude,
+        orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
+        take: 200,
+      }),
+      tx.workOrderMaterialUsage.findMany({
+        where: {
+          organizationId: DEFAULT_ORGANIZATION_ID,
+          workOrderId: id,
+        },
+        include: workOrderMaterialUsageInclude,
         orderBy: [{ occurredAt: "desc" }, { createdAt: "desc" }],
         take: 200,
       }),
@@ -421,6 +456,97 @@ export class InventoryService {
       balances.map((balance) => [this.balanceKey(balance.locationId, balance.productId, balance.lotId), balance]),
     );
 
+    const presentedRequirements = requirements.map((requirement) => {
+      const productMovements = movements.filter((movement) => (
+        movement.productId === requirement.productId && movement.unit === requirement.unit
+      ));
+      const productUsages = usages.filter((usage) => (
+        usage.productId === requirement.productId && usage.unit === requirement.unit
+      ));
+      const issuedQuantity = productMovements
+        .filter((movement) => movement.type === "issue")
+        .reduce((total, movement) => total.add(movement.quantity), new Prisma.Decimal(0));
+      const returnedQuantity = productMovements
+        .filter((movement) => movement.type === "return")
+        .reduce((total, movement) => total.add(movement.quantity), new Prisma.Decimal(0));
+      const netIssuedQuantity = issuedQuantity.sub(returnedQuantity);
+      const consumedQuantity = productUsages
+        .filter((usage) => usage.disposition === "consumed")
+        .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0));
+      const scrappedQuantity = productUsages
+        .filter((usage) => usage.disposition === "scrapped")
+        .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0));
+      const reconciledQuantity = consumedQuantity.add(scrappedQuantity);
+      const unaccountedQuantity = remainingIssuedQuantity(
+        netIssuedQuantity,
+        consumedQuantity,
+        scrappedQuantity,
+      );
+      const remainingQuantity = Prisma.Decimal.max(
+        requirement.plannedQuantity.sub(netIssuedQuantity),
+        0,
+      );
+      const issuedLots = new Map<string, Prisma.Decimal>();
+      for (const movement of productMovements) {
+        const key = this.balanceKey(movement.locationId, movement.productId, movement.lotId);
+        const current = issuedLots.get(key) ?? new Prisma.Decimal(0);
+        issuedLots.set(
+          key,
+          movement.type === "issue" ? current.add(movement.quantity) : current.sub(movement.quantity),
+        );
+      }
+      return {
+        product: {
+          id: requirement.productId,
+          code: requirement.productCode,
+          name: requirement.productName,
+        },
+        plannedQuantity: requirement.plannedQuantity.toFixed(3),
+        issuedQuantity: issuedQuantity.toFixed(3),
+        returnedQuantity: returnedQuantity.toFixed(3),
+        netIssuedQuantity: netIssuedQuantity.toFixed(3),
+        consumedQuantity: consumedQuantity.toFixed(3),
+        scrappedQuantity: scrappedQuantity.toFixed(3),
+        reconciledQuantity: reconciledQuantity.toFixed(3),
+        unaccountedQuantity: unaccountedQuantity.toFixed(3),
+        remainingQuantity: remainingQuantity.toFixed(3),
+        reconciliationReady: remainingQuantity.equals(0) && unaccountedQuantity.equals(0),
+        unit: requirement.unit,
+        availableLots: balances
+          .filter((balance) => (
+            balance.productId === requirement.productId
+            && balance.product.unit === requirement.unit
+            && balance.onHandQuantity.gt(0)
+            && balance.lot.qualityStatus === "released"
+            && (!balance.lot.expiresAt || balance.lot.expiresAt > now)
+          ))
+          .map(presentStockBalance),
+        issuedLots: [...issuedLots.entries()]
+          .filter(([, quantity]) => quantity.gt(0))
+          .map(([key, quantity]) => {
+            const balance = balanceByKey.get(key);
+            if (!balance) return undefined;
+            const lotUsages = productUsages.filter((usage) => (
+              usage.locationId === balance.locationId && usage.lotId === balance.lotId
+            ));
+            const consumed = lotUsages
+              .filter((usage) => usage.disposition === "consumed")
+              .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0));
+            const scrapped = lotUsages
+              .filter((usage) => usage.disposition === "scrapped")
+              .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0));
+            return {
+              balance: presentStockBalance(balance),
+              netIssuedQuantity: quantity.toFixed(3),
+              consumedQuantity: consumed.toFixed(3),
+              scrappedQuantity: scrapped.toFixed(3),
+              unaccountedQuantity: remainingIssuedQuantity(quantity, consumed, scrapped).toFixed(3),
+            };
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item)),
+      };
+    });
+
     return {
       workOrder: {
         id: workOrder.id,
@@ -432,65 +558,13 @@ export class InventoryService {
         revision: workOrder.revision,
         workCenter: workOrder.workCenter,
       },
-      requirements: requirements.map((requirement) => {
-        const productMovements = movements.filter((movement) => (
-          movement.productId === requirement.productId && movement.unit === requirement.unit
-        ));
-        const issuedQuantity = productMovements
-          .filter((movement) => movement.type === "issue")
-          .reduce((total, movement) => total.add(movement.quantity), new Prisma.Decimal(0));
-        const returnedQuantity = productMovements
-          .filter((movement) => movement.type === "return")
-          .reduce((total, movement) => total.add(movement.quantity), new Prisma.Decimal(0));
-        const netIssuedQuantity = issuedQuantity.sub(returnedQuantity);
-        const remainingQuantity = Prisma.Decimal.max(
-          requirement.plannedQuantity.sub(netIssuedQuantity),
-          0,
-        );
-        const issuedLots = new Map<string, Prisma.Decimal>();
-        for (const movement of productMovements) {
-          const key = this.balanceKey(movement.locationId, movement.productId, movement.lotId);
-          const current = issuedLots.get(key) ?? new Prisma.Decimal(0);
-          issuedLots.set(
-            key,
-            movement.type === "issue" ? current.add(movement.quantity) : current.sub(movement.quantity),
-          );
-        }
-        return {
-          product: {
-            id: requirement.productId,
-            code: requirement.productCode,
-            name: requirement.productName,
-          },
-          plannedQuantity: requirement.plannedQuantity.toFixed(3),
-          issuedQuantity: issuedQuantity.toFixed(3),
-          returnedQuantity: returnedQuantity.toFixed(3),
-          netIssuedQuantity: netIssuedQuantity.toFixed(3),
-          remainingQuantity: remainingQuantity.toFixed(3),
-          unit: requirement.unit,
-          availableLots: balances
-            .filter((balance) => (
-              balance.productId === requirement.productId
-              && balance.product.unit === requirement.unit
-              && balance.onHandQuantity.gt(0)
-              && balance.lot.qualityStatus === "released"
-              && (!balance.lot.expiresAt || balance.lot.expiresAt > now)
-            ))
-            .map(presentStockBalance),
-          issuedLots: [...issuedLots.entries()]
-            .filter(([, quantity]) => quantity.gt(0))
-            .map(([key, quantity]) => {
-              const balance = balanceByKey.get(key);
-              if (!balance) return undefined;
-              return {
-                balance: presentStockBalance(balance),
-                netIssuedQuantity: quantity.toFixed(3),
-              };
-            })
-            .filter((item): item is NonNullable<typeof item> => Boolean(item)),
-        };
-      }),
+      reconciliation: {
+        ready: presentedRequirements.every((requirement) => requirement.reconciliationReady),
+        pendingRequirementCount: presentedRequirements.filter((requirement) => !requirement.reconciliationReady).length,
+      },
+      requirements: presentedRequirements,
       movements: movements.map(presentInventoryTransaction),
+      usages: usages.map(presentWorkOrderMaterialUsage),
     };
   }
 

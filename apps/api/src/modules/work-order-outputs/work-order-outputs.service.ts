@@ -10,6 +10,8 @@ import { DEFAULT_ORGANIZATION_ID } from "../../common/organization.js";
 import { resolveAuditActor } from "../../common/runtime-mode.js";
 import { PrismaService } from "../../prisma/prisma.service.js";
 import { isExecutableRecipeSnapshot } from "../boms/recipe-snapshot.js";
+import { calculateWorkOrderMaterialRequirements } from "../inventory/work-order-material-policy.js";
+import { getMaterialReconciliationIssue } from "../work-order-material-usages/work-order-material-usage-policy.js";
 import type {
   InspectWorkOrderOutputDto,
   ReportWorkOrderOutputDto,
@@ -79,6 +81,12 @@ export class WorkOrderOutputsService {
         if (!isExecutableRecipeSnapshot(workOrder.recipeSnapshot)) {
           throw new UnprocessableEntityException("工单冻结配方不完整，不能申报产出");
         }
+        await this.assertMaterialsReconciled(
+          tx,
+          workOrderId,
+          workOrder.recipeSnapshot,
+          workOrder.plannedQuantity,
+        );
 
         const existing = await tx.workOrderOutput.findFirst({
           where: {
@@ -537,6 +545,59 @@ export class WorkOrderOutputsService {
       throw new ConflictException("Idempotency-Key 已用于其他质量判定命令");
     }
     return this.readView(tx, workOrderId);
+  }
+
+  private async assertMaterialsReconciled(
+    tx: Prisma.TransactionClient,
+    workOrderId: string,
+    recipeSnapshot: Parameters<typeof calculateWorkOrderMaterialRequirements>[0],
+    plannedQuantity: Prisma.Decimal,
+  ) {
+    const requirements = calculateWorkOrderMaterialRequirements(recipeSnapshot, plannedQuantity);
+    const [movements, usages] = await Promise.all([
+      tx.inventoryTransaction.findMany({
+        where: {
+          organizationId: DEFAULT_ORGANIZATION_ID,
+          workOrderId,
+          type: { in: ["issue", "return"] },
+        },
+        select: { productId: true, unit: true, type: true, quantity: true },
+      }),
+      tx.workOrderMaterialUsage.findMany({
+        where: { organizationId: DEFAULT_ORGANIZATION_ID, workOrderId },
+        select: { productId: true, unit: true, disposition: true, quantity: true },
+      }),
+    ]);
+    const rows = requirements.map((requirement) => {
+      const matchingMovements = movements.filter((movement) => (
+        movement.productId === requirement.productId && movement.unit === requirement.unit
+      ));
+      const matchingUsages = usages.filter((usage) => (
+        usage.productId === requirement.productId && usage.unit === requirement.unit
+      ));
+      return {
+        planned: requirement.plannedQuantity,
+        netIssued: matchingMovements.reduce(
+          (total, movement) => movement.type === "issue"
+            ? total.add(movement.quantity)
+            : total.sub(movement.quantity),
+          new Prisma.Decimal(0),
+        ),
+        consumed: matchingUsages
+          .filter((usage) => usage.disposition === "consumed")
+          .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0)),
+        scrapped: matchingUsages
+          .filter((usage) => usage.disposition === "scrapped")
+          .reduce((total, usage) => total.add(usage.quantity), new Prisma.Decimal(0)),
+      };
+    });
+    const issue = getMaterialReconciliationIssue(rows);
+    if (issue === "not_fully_issued") {
+      throw new ConflictException("工单物料尚未按冻结配方领齐，请完成领料后再申报产出");
+    }
+    if (issue === "unreconciled") {
+      throw new ConflictException("已领原料仍有待核销数量，请登记实际耗用、报损或退料后再申报产出");
+    }
   }
 
   private async finishedGoodsLocation(

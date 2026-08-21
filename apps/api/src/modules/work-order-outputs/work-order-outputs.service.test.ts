@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, ConflictException } from "@nestjs/common";
 import { Prisma } from "../../generated/prisma/client.js";
 import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_ORGANIZATION_ID } from "../../common/organization.js";
@@ -8,6 +8,7 @@ const workOrderId = "90000000-0000-4000-8000-000000000001";
 const outputId = "92000000-0000-4000-8000-000000000001";
 const batchId = "80000000-0000-4000-8000-000000000001";
 const productId = "20000000-0000-4000-8000-000000000001";
+const rawProductId = "20000000-0000-4000-8000-000000000004";
 const lotId = "93000000-0000-4000-8000-000000000001";
 const locationId = "11000000-0000-4000-8000-000000000004";
 
@@ -38,7 +39,25 @@ const recipeSnapshot = {
     temperatureMax: 12,
     instructions: "复核净重、批次和标签后封装。",
   }],
-  components: [],
+  components: [{
+    product: { id: rawProductId, code: "RM01234", name: "冷冻鸡胸肉", type: "raw", unit: "kg", unitCost: 20.7 },
+    netQuantity: 0.1,
+    yieldRate: 1,
+    unit: "kg",
+    unitCostSnapshot: 20.7,
+    sortOrder: 0,
+    notes: null,
+    operationCode: "OP50",
+    recipe: {
+      schemaVersion: 2,
+      capturedAt: "2026-08-20T02:00:00.000Z",
+      asAt: "2026-08-20T02:00:00.000Z",
+      product: { id: rawProductId, code: "RM01234", name: "冷冻鸡胸肉", type: "raw", unit: "kg", unitCost: 20.7 },
+      bomVersion: null,
+      operations: [],
+      components: [],
+    },
+  }],
 };
 
 const runningWorkOrder = {
@@ -96,7 +115,10 @@ function summary(status: "running" | "awaiting_quality" | "completed" | "excepti
 }
 
 describe("WorkOrderOutputsService.report", () => {
-  it("creates a pending lot/output and atomically moves work order and batch to awaiting quality", async () => {
+  function reportService(options: { issued?: string; consumed?: string; scrapped?: string } = {}) {
+    const issued = options.issued ?? "12.000";
+    const consumed = options.consumed ?? "12.000";
+    const scrapped = options.scrapped ?? "0.000";
     const tx = {
       $queryRaw: vi.fn(),
       workOrder: {
@@ -113,24 +135,55 @@ describe("WorkOrderOutputsService.report", () => {
       workOrderEvent: { create: vi.fn().mockResolvedValue({ id: "event-1" }) },
       productionBatchEvent: { create: vi.fn().mockResolvedValue({ id: "batch-event-1" }) },
       inventoryLocation: { findMany: vi.fn().mockResolvedValue([]) },
+      inventoryTransaction: {
+        findMany: vi.fn().mockResolvedValue([{
+          productId: rawProductId,
+          unit: "kg",
+          type: "issue" as const,
+          quantity: new Prisma.Decimal(issued),
+        }]),
+      },
+      workOrderMaterialUsage: {
+        findMany: vi.fn().mockResolvedValue([
+          ...(new Prisma.Decimal(consumed).gt(0) ? [{
+            productId: rawProductId,
+            unit: "kg",
+            disposition: "consumed" as const,
+            quantity: new Prisma.Decimal(consumed),
+          }] : []),
+          ...(new Prisma.Decimal(scrapped).gt(0) ? [{
+            productId: rawProductId,
+            unit: "kg",
+            disposition: "scrapped" as const,
+            quantity: new Prisma.Decimal(scrapped),
+          }] : []),
+        ]),
+      },
     };
     const prisma = {
       $transaction: vi.fn(async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
       workOrderOutput: { findFirst: vi.fn() },
     };
     const service = new WorkOrderOutputsService(prisma as never);
+    return { service, tx };
+  }
 
-    const result = await service.report(workOrderId, {
-      revision: 2,
-      quantity: "118.000",
-      unit: "份",
-      lotCode: "FG-20260821-001",
-      expiresAt: "2030-08-23T15:59:00.000Z",
-      varianceReason: "修整损耗",
-      workstationCode: "净菜包装间",
-      deviceId: "WEB-DEVELOPMENT",
-      actor: "开发环境用户",
-    }, "work-order-output:key-1");
+  const reportInput = {
+    revision: 2,
+    quantity: "118.000",
+    unit: "份",
+    lotCode: "FG-20260821-001",
+    expiresAt: "2030-08-23T15:59:00.000Z",
+    varianceReason: "修整损耗",
+    workstationCode: "净菜包装间",
+    deviceId: "WEB-DEVELOPMENT",
+    actor: "开发环境用户",
+  };
+
+  it("creates a pending lot/output after every issued material is reconciled", async () => {
+    const { service, tx } = reportService();
+
+    const result = await service.report(workOrderId, reportInput, "work-order-output:key-1");
 
     expect(tx.inventoryLot.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ qualityStatus: "pending", code: "FG-20260821-001" }),
@@ -148,6 +201,26 @@ describe("WorkOrderOutputsService.report", () => {
       data: expect.objectContaining({ type: "output_reported", idempotencyKey: "work-order-output:key-1" }),
     }));
     expect(result.workOrder.status).toBe("awaiting_quality");
+  });
+
+  it("blocks reporting output until every frozen requirement is fully issued", async () => {
+    const { service, tx } = reportService({ issued: "11.999", consumed: "11.999" });
+    await expect(service.report(
+      workOrderId,
+      reportInput,
+      "work-order-output:key-not-issued",
+    )).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.inventoryLot.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks reporting output while issued materials still have no disposition", async () => {
+    const { service, tx } = reportService({ consumed: "11.500" });
+    await expect(service.report(
+      workOrderId,
+      reportInput,
+      "work-order-output:key-unreconciled",
+    )).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.inventoryLot.create).not.toHaveBeenCalled();
   });
 
   it("rejects production writes before opening a transaction without trusted identity", async () => {

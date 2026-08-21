@@ -255,10 +255,14 @@ describe("InventoryService.listStock", () => {
       stockBalanceProjection: { findMany: vi.fn().mockResolvedValue([balance]) },
     };
     const service = new InventoryService(prisma as never);
-    const result = await service.listStock({ productId: product.id });
+    const result = await service.listStock({ productId: product.id, lotId: lot.id });
 
     expect(prisma.stockBalanceProjection.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ organizationId: DEFAULT_ORGANIZATION_ID, productId: product.id }),
+      where: expect.objectContaining({
+        organizationId: DEFAULT_ORGANIZATION_ID,
+        productId: product.id,
+        lotId: lot.id,
+      }),
     }));
     expect(result.data[0]).toEqual(expect.objectContaining({ unit: "kg", onHandQuantity: "120.000" }));
   });
@@ -268,6 +272,7 @@ describe("InventoryService work order material movements", () => {
   function createMaterialService(options: {
     repeated?: boolean;
     previousMovements?: Array<Pick<typeof materialTransaction, "type" | "quantity" | "locationId" | "lotId">>;
+    previousUsages?: Array<{ disposition: "consumed" | "scrapped"; quantity: Prisma.Decimal }>;
     status?: typeof materialWorkOrder.status | "exception";
   } = {}) {
     const currentWorkOrder = { ...materialWorkOrder, status: options.status ?? materialWorkOrder.status };
@@ -285,6 +290,9 @@ describe("InventoryService work order material movements", () => {
           .mockResolvedValueOnce(options.previousMovements ?? [])
           .mockResolvedValue([materialTransaction]),
         create: vi.fn().mockResolvedValue(materialTransaction),
+      },
+      workOrderMaterialUsage: {
+        findMany: vi.fn().mockResolvedValue(options.previousUsages ?? []),
       },
       stockBalanceProjection: {
         findFirst: vi.fn().mockResolvedValue(balance),
@@ -366,6 +374,24 @@ describe("InventoryService work order material movements", () => {
       materialWorkOrder.id,
       movementInput,
       "work-order-return:key-1",
+    )).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.stockBalanceProjection.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not allow already consumed material to be returned to inventory", async () => {
+    const { service, tx } = createMaterialService({
+      previousMovements: [{
+        type: "issue",
+        quantity: new Prisma.Decimal("0.500"),
+        locationId: location.id,
+        lotId: lot.id,
+      }],
+      previousUsages: [{ disposition: "consumed", quantity: new Prisma.Decimal("0.250") }],
+    });
+    await expect(service.returnWorkOrderMaterial(
+      materialWorkOrder.id,
+      movementInput,
+      "work-order-return:key-consumed",
     )).rejects.toBeInstanceOf(ConflictException);
     expect(tx.stockBalanceProjection.updateMany).not.toHaveBeenCalled();
   });

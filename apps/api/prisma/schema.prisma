@@ -135,6 +135,11 @@ enum WorkOrderOutputStatus {
   rejected
 }
 
+enum WorkOrderMaterialDisposition {
+  consumed
+  scrapped
+}
+
 enum QualityDecision {
   released
   rejected
@@ -175,29 +180,30 @@ enum InventoryTransactionDirection {
 }
 
 model Organization {
-  id                     String                   @id @default(uuid()) @db.Uuid
-  code                   String                   @unique @db.VarChar(32)
-  name                   String                   @db.VarChar(120)
-  createdAt              DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt              DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  customers              Customer[]
-  products               Product[]
-  salesOrders            SalesOrder[]
-  productionDemands      ProductionDemand[]
-  productionDemandEvents ProductionDemandEvent[]
-  productionBatches      ProductionBatch[]
-  productionBatchEvents  ProductionBatchEvent[]
-  workOrders             WorkOrder[]
-  workOrderEvents        WorkOrderEvent[]
-  workOrderOutputs       WorkOrderOutput[]
-  qualityInspections     QualityInspection[]
-  inventoryLocations     InventoryLocation[]
-  inventoryLots          InventoryLot[]
-  inventoryTransactions  InventoryTransaction[]
-  stockBalances          StockBalanceProjection[]
-  boms                   Bom[]
-  bomVersionEvents       BomVersionEvent[]
-  documentNumbers        DocumentNumber[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  code                    String                   @unique @db.VarChar(32)
+  name                    String                   @db.VarChar(120)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  customers               Customer[]
+  products                Product[]
+  salesOrders             SalesOrder[]
+  productionDemands       ProductionDemand[]
+  productionDemandEvents  ProductionDemandEvent[]
+  productionBatches       ProductionBatch[]
+  productionBatchEvents   ProductionBatchEvent[]
+  workOrders              WorkOrder[]
+  workOrderEvents         WorkOrderEvent[]
+  workOrderOutputs        WorkOrderOutput[]
+  workOrderMaterialUsages WorkOrderMaterialUsage[]
+  qualityInspections      QualityInspection[]
+  inventoryLocations      InventoryLocation[]
+  inventoryLots           InventoryLot[]
+  inventoryTransactions   InventoryTransaction[]
+  stockBalances           StockBalanceProjection[]
+  boms                    Bom[]
+  bomVersionEvents        BomVersionEvent[]
+  documentNumbers         DocumentNumber[]
 
   @@map("organizations")
 }
@@ -225,33 +231,34 @@ model Customer {
 }
 
 model Product {
-  id                    String                   @id @default(uuid()) @db.Uuid
-  organizationId        String                   @map("organization_id") @db.Uuid
-  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  code                  String                   @db.VarChar(32)
-  name                  String                   @db.VarChar(160)
-  type                  ProductType
-  category              String                   @db.VarChar(80)
-  unit                  String                   @db.VarChar(24)
-  cost                  Decimal                  @default(0) @db.Decimal(14, 4)
-  price                 Decimal                  @default(0) @db.Decimal(14, 2)
-  stock                 Decimal                  @default(0) @db.Decimal(14, 3)
-  safetyStock           Decimal                  @default(0) @map("safety_stock") @db.Decimal(14, 3)
-  taxRate               Decimal                  @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  tags                  String[]                 @default([])
-  status                RecordStatus             @default(active)
-  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
-  orderLines            SalesOrderLine[]
-  demandLines           ProductionDemandLine[]
-  productionBatches     ProductionBatch[]
-  workOrders            WorkOrder[]
-  workOrderOutputs      WorkOrderOutput[]
-  inventoryLots         InventoryLot[]
-  inventoryTransactions InventoryTransaction[]
-  stockBalances         StockBalanceProjection[]
-  boms                  Bom[]                    @relation("BomOutputProduct")
-  bomItems              BomItem[]                @relation("BomComponentProduct")
+  id                      String                   @id @default(uuid()) @db.Uuid
+  organizationId          String                   @map("organization_id") @db.Uuid
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  code                    String                   @db.VarChar(32)
+  name                    String                   @db.VarChar(160)
+  type                    ProductType
+  category                String                   @db.VarChar(80)
+  unit                    String                   @db.VarChar(24)
+  cost                    Decimal                  @default(0) @db.Decimal(14, 4)
+  price                   Decimal                  @default(0) @db.Decimal(14, 2)
+  stock                   Decimal                  @default(0) @db.Decimal(14, 3)
+  safetyStock             Decimal                  @default(0) @map("safety_stock") @db.Decimal(14, 3)
+  taxRate                 Decimal                  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  tags                    String[]                 @default([])
+  status                  RecordStatus             @default(active)
+  createdAt               DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
+  orderLines              SalesOrderLine[]
+  demandLines             ProductionDemandLine[]
+  productionBatches       ProductionBatch[]
+  workOrders              WorkOrder[]
+  workOrderOutputs        WorkOrderOutput[]
+  workOrderMaterialUsages WorkOrderMaterialUsage[]
+  inventoryLots           InventoryLot[]
+  inventoryTransactions   InventoryTransaction[]
+  stockBalances           StockBalanceProjection[]
+  boms                    Bom[]                    @relation("BomOutputProduct")
+  bomItems                BomItem[]                @relation("BomComponentProduct")
 
   @@unique([organizationId, code])
   @@index([organizationId, name])
@@ -454,33 +461,34 @@ model ProductionBatchEvent {
 }
 
 model WorkOrder {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  organizationId        String                 @map("organization_id") @db.Uuid
-  organization          Organization           @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  productionBatchId     String                 @unique @map("production_batch_id") @db.Uuid
-  productionBatch       ProductionBatch        @relation(fields: [productionBatchId], references: [id], onDelete: Restrict)
-  code                  String                 @db.VarChar(32)
-  factoryCode           String                 @map("factory_code") @db.VarChar(32)
-  factoryName           String                 @map("factory_name") @db.VarChar(120)
-  productId             String                 @map("product_id") @db.Uuid
-  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
-  productCode           String                 @map("product_code") @db.VarChar(32)
-  productName           String                 @map("product_name") @db.VarChar(160)
-  plannedQuantity       Decimal                @map("planned_quantity") @db.Decimal(14, 3)
-  unit                  String                 @db.VarChar(24)
-  selectedBomVersionId  String                 @map("selected_bom_version_id") @db.Uuid
-  selectedBomVersion    BomVersion             @relation(fields: [selectedBomVersionId], references: [id], onDelete: Restrict)
-  bomVersionSnapshot    String                 @map("bom_version_snapshot") @db.VarChar(24)
-  recipeSnapshot        Json                   @map("recipe_snapshot") @db.JsonB
-  scheduledStartAt      DateTime               @map("scheduled_start_at") @db.Timestamptz(3)
-  workCenter            String                 @map("work_center") @db.VarChar(80)
-  status                WorkOrderStatus        @default(pending)
-  revision              Int                    @default(1)
-  createdBy             String                 @map("created_by") @db.VarChar(80)
-  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt             DateTime               @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                    String                   @id @default(uuid()) @db.Uuid
+  organizationId        String                   @map("organization_id") @db.Uuid
+  organization          Organization             @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  productionBatchId     String                   @unique @map("production_batch_id") @db.Uuid
+  productionBatch       ProductionBatch          @relation(fields: [productionBatchId], references: [id], onDelete: Restrict)
+  code                  String                   @db.VarChar(32)
+  factoryCode           String                   @map("factory_code") @db.VarChar(32)
+  factoryName           String                   @map("factory_name") @db.VarChar(120)
+  productId             String                   @map("product_id") @db.Uuid
+  product               Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productCode           String                   @map("product_code") @db.VarChar(32)
+  productName           String                   @map("product_name") @db.VarChar(160)
+  plannedQuantity       Decimal                  @map("planned_quantity") @db.Decimal(14, 3)
+  unit                  String                   @db.VarChar(24)
+  selectedBomVersionId  String                   @map("selected_bom_version_id") @db.Uuid
+  selectedBomVersion    BomVersion               @relation(fields: [selectedBomVersionId], references: [id], onDelete: Restrict)
+  bomVersionSnapshot    String                   @map("bom_version_snapshot") @db.VarChar(24)
+  recipeSnapshot        Json                     @map("recipe_snapshot") @db.JsonB
+  scheduledStartAt      DateTime                 @map("scheduled_start_at") @db.Timestamptz(3)
+  workCenter            String                   @map("work_center") @db.VarChar(80)
+  status                WorkOrderStatus          @default(pending)
+  revision              Int                      @default(1)
+  createdBy             String                   @map("created_by") @db.VarChar(80)
+  createdAt             DateTime                 @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   events                WorkOrderEvent[]
   outputs               WorkOrderOutput[]
+  materialUsages        WorkOrderMaterialUsage[]
   inventoryTransactions InventoryTransaction[]
 
   @@unique([organizationId, code])
@@ -573,6 +581,35 @@ model QualityInspection {
   @@map("quality_inspections")
 }
 
+model WorkOrderMaterialUsage {
+  id              String                       @id @default(uuid()) @db.Uuid
+  organizationId  String                       @map("organization_id") @db.Uuid
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  workOrderId     String                       @map("work_order_id") @db.Uuid
+  workOrder       WorkOrder                    @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
+  locationId      String                       @map("location_id") @db.Uuid
+  location        InventoryLocation            @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  productId       String                       @map("product_id") @db.Uuid
+  product         Product                      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  lotId           String                       @map("lot_id") @db.Uuid
+  lot             InventoryLot                 @relation(fields: [lotId], references: [id], onDelete: Restrict)
+  disposition     WorkOrderMaterialDisposition
+  quantity        Decimal                      @db.Decimal(14, 3)
+  unit            String                       @db.VarChar(24)
+  reason          String?                      @db.VarChar(500)
+  actor           String                       @db.VarChar(80)
+  workstationCode String                       @map("workstation_code") @db.VarChar(80)
+  deviceId        String                       @map("device_id") @db.VarChar(120)
+  idempotencyKey  String                       @map("idempotency_key") @db.VarChar(80)
+  occurredAt      DateTime                     @map("occurred_at") @db.Timestamptz(3)
+  createdAt       DateTime                     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, workOrderId, occurredAt])
+  @@index([organizationId, productId, lotId, occurredAt])
+  @@map("work_order_material_usages")
+}
+
 model InventoryLocation {
   id             String                   @id @default(uuid()) @db.Uuid
   organizationId String                   @map("organization_id") @db.Uuid
@@ -587,6 +624,7 @@ model InventoryLocation {
   updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(3)
   transactions   InventoryTransaction[]
   stockBalances  StockBalanceProjection[]
+  materialUsages WorkOrderMaterialUsage[]
 
   @@unique([organizationId, code])
   @@index([organizationId, factoryCode, active])
@@ -609,6 +647,7 @@ model InventoryLot {
   createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz(3)
   transactions    InventoryTransaction[]
   stockBalances   StockBalanceProjection[]
+  materialUsages  WorkOrderMaterialUsage[]
   workOrderOutput WorkOrderOutput?
 
   @@unique([organizationId, code])

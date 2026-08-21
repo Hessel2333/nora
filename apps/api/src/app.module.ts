@@ -8,10 +8,11 @@ import { ProductionBatchesModule } from "./modules/production-batches/production
 import { WorkOrdersModule } from "./modules/work-orders/work-orders.module.js";
 import { WorkOrderOutputsModule } from "./modules/work-order-outputs/work-order-outputs.module.js";
 import { InventoryModule } from "./modules/inventory/inventory.module.js";
+import { WorkOrderMaterialUsagesModule } from "./modules/work-order-material-usages/work-order-material-usages.module.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 
 @Module({
-  imports: [PrismaModule, CatalogModule, BomsModule, OrdersModule, ProductionDemandsModule, ProductionBatchesModule, WorkOrdersModule, WorkOrderOutputsModule, InventoryModule],
+  imports: [PrismaModule, CatalogModule, BomsModule, OrdersModule, ProductionDemandsModule, ProductionBatchesModule, WorkOrdersModule, WorkOrderOutputsModule, InventoryModule, WorkOrderMaterialUsagesModule],
   controllers: [HealthController],
 })
 export class AppModule {}
