@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, ArrowDownToLine, ArrowUpFromLine, CheckCircle2, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  CheckCircle2,
+  ClipboardCheck,
+  PackageX,
+  RefreshCw,
+} from "lucide-react";
 import { Badge, Button, Card, Modal, Progress, inputClass } from "@/components/ui";
 import { NoraApiError, noraApi } from "@/lib/nora-api";
 import type {
@@ -9,7 +17,11 @@ import type {
   ProductionWorkOrder,
   WorkOrderMaterialsView,
 } from "@/lib/types";
-import { materialIssueProgress, suggestedMovementQuantity } from "./work-order-material-view";
+import {
+  materialIssueProgress,
+  materialReconciliationProgress,
+  suggestedMovementQuantity,
+} from "./work-order-material-view";
 
 type RuntimeMode = "demo" | "development" | "production";
 type MaterialRequirement = WorkOrderMaterialsView["requirements"][number];
@@ -102,6 +114,61 @@ export function WorkOrderMaterialModal({
     }
   };
 
+  const recordUsage = async (
+    disposition: "consumed" | "scrapped",
+    issuedLot: MaterialRequirement["issuedLots"][number],
+    quantity: string,
+    reason?: string,
+  ) => {
+    if (!workOrder || !view || mode === "production") return;
+    const numericQuantity = Number(quantity);
+    if (!Number.isFinite(numericQuantity) || numericQuantity <= 0) {
+      setFeedback({ tone: "error", message: "请输入大于 0 的有效核销数量。" });
+      return;
+    }
+    if (disposition === "scrapped" && !reason?.trim()) {
+      setFeedback({ tone: "error", message: "登记报损时必须填写真实原因。" });
+      return;
+    }
+    const normalizedQuantity = numericQuantity.toFixed(3);
+    const normalizedReason = reason?.trim() || undefined;
+    const operationId = `usage:${disposition}:${issuedLot.balance.id}:${normalizedQuantity}:${normalizedReason ?? ""}`;
+    const idempotencyKey = commandKeys.current.get(operationId)
+      ?? `work-order-material-usage:${crypto.randomUUID()}`;
+    commandKeys.current.set(operationId, idempotencyKey);
+    setActionId(operationId);
+    setFeedback(null);
+    try {
+      const result = await noraApi.recordWorkOrderMaterialUsage(workOrder.id, {
+        stockBalanceId: issuedLot.balance.id,
+        disposition,
+        quantity: normalizedQuantity,
+        unit: issuedLot.balance.unit,
+        reason: normalizedReason,
+        workstationCode: view.workOrder.workCenter,
+        deviceId: "WEB-DEVELOPMENT",
+      }, idempotencyKey);
+      setView(result.materials);
+      commandKeys.current.delete(operationId);
+      setFeedback({
+        tone: "success",
+        message: `${result.usage.product.name} ${normalizedQuantity} ${result.usage.unit} 已登记${disposition === "consumed" ? "实际耗用" : "报损"}`,
+      });
+    } catch (cause) {
+      if (cause instanceof NoraApiError && cause.status === 409) {
+        setFeedback({ tone: "error", message: `${cause.message}；已刷新最新工单物料。` });
+        setReloadVersion((version) => version + 1);
+      } else {
+        setFeedback({
+          tone: "error",
+          message: cause instanceof Error ? cause.message : "物料核销失败，请保留当前页面后重试。",
+        });
+      }
+    } finally {
+      setActionId("");
+    }
+  };
+
   return (
     <Modal
       open={open}
@@ -109,14 +176,14 @@ export function WorkOrderMaterialModal({
         if (actionId) return;
         onOpenChange(nextOpen);
       }}
-      title="工单领退料"
+      title="工单物料"
       description={workOrder ? `${workOrder.code} · ${workOrder.productName}` : undefined}
       size="xl"
     >
       {mode === "production" ? (
         <div className="mb-4 rounded-xl border border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-sm">
           <b>当前仅可查看。</b>
-          <span className="ml-1 text-[var(--text-secondary)]">生产身份与库位权限接入后才能领退料。</span>
+          <span className="ml-1 text-[var(--text-secondary)]">生产身份与职责权限接入后才能领料、核销或退料。</span>
         </div>
       ) : null}
 
@@ -145,10 +212,11 @@ export function WorkOrderMaterialModal({
         </div>
       ) : view ? (
         <div className="space-y-5">
-          <div className="grid gap-3 rounded-xl bg-[var(--surface-muted)] p-4 text-sm sm:grid-cols-3">
+          <div className="grid gap-3 rounded-xl bg-[var(--surface-muted)] p-4 text-sm sm:grid-cols-4">
             <span><span className="block text-xs text-[var(--text-tertiary)]">工单状态</span><b className="mt-1 block">{workOrderStatusLabel(view.workOrder.status)}</b></span>
             <span><span className="block text-xs text-[var(--text-tertiary)]">计划产量</span><b className="mt-1 block tabular-nums">{view.workOrder.plannedQuantity} {view.workOrder.unit}</b></span>
-            <span><span className="block text-xs text-[var(--text-tertiary)]">领料工位</span><b className="mt-1 block">{view.workOrder.workCenter}</b></span>
+            <span><span className="block text-xs text-[var(--text-tertiary)]">执行工位</span><b className="mt-1 block">{view.workOrder.workCenter}</b></span>
+            <span><span className="block text-xs text-[var(--text-tertiary)]">报产准备</span><b className={`mt-1 block ${view.reconciliation.ready ? "text-[var(--status-success)]" : "text-[var(--status-warning)]"}`}>{view.reconciliation.ready ? "物料已核销" : `${view.reconciliation.pendingRequirementCount} 类待处理`}</b></span>
           </div>
 
           <section>
@@ -165,11 +233,38 @@ export function WorkOrderMaterialModal({
                   key={`${requirement.product.id}:${requirement.unit}`}
                   requirement={requirement}
                   canWrite={mode !== "production"}
+                  workOrderStatus={view.workOrder.status}
                   actionId={actionId}
                   onMove={moveMaterial}
+                  onUsage={recordUsage}
                 />
               ))}
             </div>
+          </section>
+
+          <section>
+            <h3 className="font-semibold">最近耗用与报损</h3>
+            {view.usages.length ? (
+              <div className="mt-3 divide-y divide-[var(--stroke-subtle)] rounded-xl border border-[var(--stroke-subtle)]">
+                {view.usages.slice(0, 12).map((usage) => (
+                  <div key={usage.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+                    <span>
+                      <b>{usage.product.name}</b>
+                      <span className="ml-2 text-xs text-[var(--text-tertiary)]">{usage.lot.code} · {usage.location.name}</span>
+                    </span>
+                    <span className="text-right">
+                      <b className={usage.disposition === "consumed" ? "text-[var(--status-success)]" : "text-[var(--status-danger)]"}>
+                        {usage.disposition === "consumed" ? "实际耗用" : "报损"} {usage.quantity} {usage.unit}
+                      </b>
+                      <span className="ml-2 text-xs text-[var(--text-tertiary)]">{usage.actor} · {formatOccurrence(usage.occurredAt)}</span>
+                      {usage.reason ? <span className="mt-1 block text-xs text-[var(--text-secondary)]">{usage.reason}</span> : null}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Card className="mt-3 px-4 py-8 text-center text-sm text-[var(--text-tertiary)]">尚无实际耗用或报损记录</Card>
+            )}
           </section>
 
           <section>
@@ -204,13 +299,17 @@ export function WorkOrderMaterialModal({
 function MaterialRequirementCard({
   requirement,
   canWrite,
+  workOrderStatus,
   actionId,
   onMove,
+  onUsage,
 }: {
   requirement: MaterialRequirement;
   canWrite: boolean;
+  workOrderStatus: WorkOrderMaterialsView["workOrder"]["status"];
   actionId: string;
   onMove: (movement: "issue" | "return", balance: InventoryStockBalance, quantity: string) => Promise<void>;
+  onUsage: (disposition: "consumed" | "scrapped", issuedLot: MaterialRequirement["issuedLots"][number], quantity: string, reason?: string) => Promise<void>;
 }) {
   const firstLot = requirement.availableLots[0];
   const [selectedBalanceId, setSelectedBalanceId] = useState(firstLot?.id ?? "");
@@ -226,7 +325,8 @@ function MaterialRequirementCard({
     setIssueQuantity(suggestedMovementQuantity(requirement.remainingQuantity, current?.availableQuantity));
   }, [requirement.availableLots, requirement.remainingQuantity, selectedBalanceId]);
 
-  const progress = materialIssueProgress(requirement);
+  const issueProgress = materialIssueProgress(requirement);
+  const reconciliationProgress = materialReconciliationProgress(requirement);
   const numericIssueQuantity = Number(issueQuantity);
   const maximumIssueQuantity = Math.min(
     Number(requirement.remainingQuantity),
@@ -248,8 +348,12 @@ function MaterialRequirementCard({
         </span>
       </div>
       <div className="mt-3 flex items-center gap-3">
-        <Progress value={progress} className="flex-1" />
-        <span className="text-xs text-[var(--text-tertiary)]">剩余 {requirement.remainingQuantity}</span>
+        <Progress value={issueProgress} className="flex-1" />
+        <span className="text-xs text-[var(--text-tertiary)]">待领 {requirement.remainingQuantity}</span>
+      </div>
+      <div className="mt-2 flex items-center gap-3">
+        <Progress value={reconciliationProgress} className="flex-1" />
+        <span className="text-xs text-[var(--text-tertiary)]">待核销 {requirement.unaccountedQuantity}</span>
       </div>
 
       {Number(requirement.remainingQuantity) > 0 ? (
@@ -299,15 +403,17 @@ function MaterialRequirementCard({
 
       {requirement.issuedLots.length ? (
         <div className="mt-4 border-t border-[var(--stroke-subtle)] pt-3">
-          <p className="mb-2 text-xs font-medium text-[var(--text-secondary)]">已领批次可退数量</p>
+          <p className="mb-2 text-xs font-medium text-[var(--text-secondary)]">已领批次去向</p>
           <div className="space-y-2">
             {requirement.issuedLots.map((issuedLot) => (
-              <ReturnLotRow
+              <IssuedLotRow
                 key={issuedLot.balance.id}
                 issuedLot={issuedLot}
                 canWrite={canWrite}
+                canRecordUsage={canWrite && workOrderStatus === "running"}
                 busy={Boolean(actionId)}
                 onReturn={(quantity) => onMove("return", issuedLot.balance, quantity)}
+                onUsage={(disposition, quantity, reason) => onUsage(disposition, issuedLot, quantity, reason)}
               />
             ))}
           </div>
@@ -317,47 +423,69 @@ function MaterialRequirementCard({
   );
 }
 
-function ReturnLotRow({
+function IssuedLotRow({
   issuedLot,
   canWrite,
+  canRecordUsage,
   busy,
   onReturn,
+  onUsage,
 }: {
   issuedLot: MaterialRequirement["issuedLots"][number];
   canWrite: boolean;
+  canRecordUsage: boolean;
   busy: boolean;
   onReturn: (quantity: string) => Promise<void>;
+  onUsage: (disposition: "consumed" | "scrapped", quantity: string, reason?: string) => Promise<void>;
 }) {
-  const [quantity, setQuantity] = useState(issuedLot.netIssuedQuantity);
-  useEffect(() => setQuantity(issuedLot.netIssuedQuantity), [issuedLot.netIssuedQuantity]);
+  const [quantity, setQuantity] = useState(issuedLot.unaccountedQuantity);
+  const [reason, setReason] = useState("");
+  useEffect(() => setQuantity(issuedLot.unaccountedQuantity), [issuedLot.unaccountedQuantity]);
   const numericQuantity = Number(quantity);
-  const returnQuantityIsValid = Number.isFinite(numericQuantity)
+  const quantityIsValid = Number.isFinite(numericQuantity)
     && numericQuantity > 0
-    && numericQuantity <= Number(issuedLot.netIssuedQuantity);
+    && numericQuantity <= Number(issuedLot.unaccountedQuantity);
   return (
-    <div className="grid items-center gap-2 rounded-lg bg-[var(--surface-muted)] p-2 sm:grid-cols-[1fr_110px_auto]">
-      <span className="text-xs">
-        <b>{issuedLot.balance.lot.code}</b>
-        <span className="ml-1 text-[var(--text-tertiary)]">· {issuedLot.balance.location.name} · 可退 {issuedLot.netIssuedQuantity}</span>
-      </span>
-      <input
-        aria-label={`${issuedLot.balance.lot.code} 退料数量`}
-        type="number"
-        min="0.001"
-        step="0.001"
-        max={issuedLot.netIssuedQuantity}
-        value={quantity}
-        onChange={(event) => setQuantity(event.target.value)}
-        className={inputClass}
-      />
-      <Button
-        size="sm"
-        variant="secondary"
-        disabled={!canWrite || busy || !returnQuantityIsValid}
-        onClick={() => void onReturn(quantity)}
-      >
-        <ArrowUpFromLine size={14} />退料
-      </Button>
+    <div className="rounded-lg bg-[var(--surface-muted)] p-3">
+      <div className="flex flex-wrap items-start justify-between gap-2 text-xs">
+        <span><b>{issuedLot.balance.lot.code}</b><span className="ml-1 text-[var(--text-tertiary)]">· {issuedLot.balance.location.name}</span></span>
+        <span className="tabular-nums text-[var(--text-secondary)]">已领 {issuedLot.netIssuedQuantity} · 耗用 {issuedLot.consumedQuantity} · 报损 {issuedLot.scrappedQuantity} · 待核销 {issuedLot.unaccountedQuantity}</span>
+      </div>
+      {Number(issuedLot.unaccountedQuantity) > 0 ? (
+        <div className="mt-3 grid gap-2 lg:grid-cols-[100px_1fr_auto]">
+          <input
+            aria-label={`${issuedLot.balance.lot.code} 处理数量`}
+            type="number"
+            min="0.001"
+            step="0.001"
+            max={issuedLot.unaccountedQuantity}
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            className={inputClass}
+          />
+          <input
+            aria-label={`${issuedLot.balance.lot.code} 核销说明`}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            maxLength={500}
+            placeholder="报损时填写原因；实际耗用可备注"
+            className={inputClass}
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <Button size="sm" disabled={!canRecordUsage || busy || !quantityIsValid} onClick={() => void onUsage("consumed", quantity, reason)}>
+              <ClipboardCheck size={14} />耗用
+            </Button>
+            <Button size="sm" variant="danger" disabled={!canRecordUsage || busy || !quantityIsValid || !reason.trim()} onClick={() => void onUsage("scrapped", quantity, reason)}>
+              <PackageX size={14} />报损
+            </Button>
+            <Button size="sm" variant="secondary" disabled={!canWrite || busy || !quantityIsValid} onClick={() => void onReturn(quantity)}>
+              <ArrowUpFromLine size={14} />退料
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <p className="mt-2 flex items-center gap-1 text-xs text-[var(--status-success)]"><CheckCircle2 size={14} />该批次已完整核销</p>
+      )}
     </div>
   );
 }

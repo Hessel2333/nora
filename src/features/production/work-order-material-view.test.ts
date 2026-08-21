@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { materialIssueProgress, suggestedMovementQuantity } from "./work-order-material-view";
+import {
+  materialIssueProgress,
+  materialReconciliationProgress,
+  suggestedMovementQuantity,
+} from "./work-order-material-view";
 
 describe("work order material view", () => {
   it("calculates bounded net issue progress", () => {
@@ -10,5 +14,10 @@ describe("work order material view", () => {
   it("suggests the smaller of remaining requirement and lot balance", () => {
     expect(suggestedMovementQuantity("1.516", "12.500")).toBe("1.516");
     expect(suggestedMovementQuantity("1.516", "0.700")).toBe("0.700");
+  });
+
+  it("calculates reconciliation progress against net issued quantity", () => {
+    expect(materialReconciliationProgress({ netIssuedQuantity: "2.000", reconciledQuantity: "1.500" } as never)).toBe(75);
+    expect(materialReconciliationProgress({ netIssuedQuantity: "0.000", reconciledQuantity: "0.000" } as never)).toBe(0);
   });
 });

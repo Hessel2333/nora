@@ -400,10 +400,10 @@ function WorkOrderActionButtons({
       <Button
         size="sm"
         variant="secondary"
-        aria-label={`${workOrder.code} 领退料`}
+        aria-label={`${workOrder.code} 工单物料`}
         onClick={() => onMaterials(workOrder)}
       >
-        <PackageOpen size={14} />领退料
+        <PackageOpen size={14} />物料
       </Button>
       <Button
         size="sm"

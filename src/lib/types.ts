@@ -79,6 +79,22 @@ export interface InventoryTransaction {
   createdAt: string;
 }
 
+export interface WorkOrderMaterialUsage {
+  id: string;
+  location: { id: string; code: string; name: string };
+  product: { id: string; code: string; name: string };
+  lot: { id: string; code: string; qualityStatus: InventoryLotQualityStatus };
+  disposition: "consumed" | "scrapped";
+  quantity: string;
+  unit: string;
+  reason: string | null;
+  actor: string;
+  workstationCode: string;
+  deviceId: string;
+  occurredAt: string;
+  createdAt: string;
+}
+
 export interface WorkOrderMaterialsView {
   workOrder: {
     id: string;
@@ -90,21 +106,34 @@ export interface WorkOrderMaterialsView {
     revision: number;
     workCenter: string;
   };
+  reconciliation: {
+    ready: boolean;
+    pendingRequirementCount: number;
+  };
   requirements: Array<{
     product: { id: string; code: string; name: string };
     plannedQuantity: string;
     issuedQuantity: string;
     returnedQuantity: string;
     netIssuedQuantity: string;
+    consumedQuantity: string;
+    scrappedQuantity: string;
+    reconciledQuantity: string;
+    unaccountedQuantity: string;
     remainingQuantity: string;
+    reconciliationReady: boolean;
     unit: string;
     availableLots: InventoryStockBalance[];
     issuedLots: Array<{
       balance: InventoryStockBalance;
       netIssuedQuantity: string;
+      consumedQuantity: string;
+      scrappedQuantity: string;
+      unaccountedQuantity: string;
     }>;
   }>;
   movements: InventoryTransaction[];
+  usages: WorkOrderMaterialUsage[];
 }
 
 export interface BomItem {

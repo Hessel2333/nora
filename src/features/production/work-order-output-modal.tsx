@@ -13,7 +13,7 @@ import {
 import { Badge, Button, Field, Modal, inputClass } from "@/components/ui";
 import { NoraApiError, noraApi } from "@/lib/nora-api";
 import type { NoraRuntimeMode } from "@/lib/runtime-mode";
-import type { ProductionWorkOrder, WorkOrderOutputView } from "@/lib/types";
+import type { ProductionWorkOrder, WorkOrderMaterialsView, WorkOrderOutputView } from "@/lib/types";
 import { outputTemperatureRange, qualityReleaseIssue } from "./work-order-output-view";
 
 const outputStatus = {
@@ -46,6 +46,7 @@ export function WorkOrderOutputModal({
   onWorkOrderChanged: () => void;
 }) {
   const [view, setView] = useState<WorkOrderOutputView | null>(null);
+  const [materials, setMaterials] = useState<WorkOrderMaterialsView | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -72,10 +73,14 @@ export function WorkOrderOutputModal({
     setError("");
     setFeedback("");
     setQuantity(workOrder.plannedQuantity);
-    void noraApi.workOrderOutputs(workOrder.id)
-      .then((result) => {
+    void Promise.all([
+      noraApi.workOrderOutputs(workOrder.id),
+      noraApi.workOrderMaterials(workOrder.id),
+    ])
+      .then(([result, materialResult]) => {
         if (!active) return;
         setView(result);
+        setMaterials(materialResult);
         setLocationId((current) => current || result.finishedGoodsLocations[0]?.id || "");
       })
       .catch((cause) => {
@@ -97,6 +102,10 @@ export function WorkOrderOutputModal({
 
   const report = async () => {
     if (!workOrder || !view) return;
+    if (!materials?.reconciliation.ready) {
+      setError("工单物料尚未领齐或完成去向核销，请先返回工单处理物料。");
+      return;
+    }
     const numericQuantity = Number(quantity);
     if (!Number.isFinite(numericQuantity) || numericQuantity <= 0 || !/^\d+(\.\d{1,3})?$/.test(quantity.trim())) {
       setError("实际产出数量必须是大于 0、最多 3 位小数的数字");
@@ -254,6 +263,16 @@ export function WorkOrderOutputModal({
           {view.workOrder.status === "running" && !pendingOutput ? (
             <section aria-labelledby="report-output-title">
               <div className="mb-3 flex items-center gap-2"><PackageCheck size={18} className="text-[var(--interactive)]" /><h3 id="report-output-title" className="font-semibold">申报实际产出</h3></div>
+              {materials?.reconciliation.ready ? (
+                <div className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--status-success)]/25 bg-[var(--status-success-soft)] px-4 py-3 text-sm text-[var(--status-success)]">
+                  <CheckCircle2 size={17} /><span>物料已领齐并完成耗用、报损或退料核销。</span>
+                </div>
+              ) : (
+                <div className="mb-4 flex items-start gap-2 rounded-xl border border-[var(--status-warning)]/25 bg-[var(--status-warning-soft)] px-4 py-3 text-sm text-[var(--status-warning)]" role="note">
+                  <AlertTriangle className="mt-0.5 shrink-0" size={17} />
+                  <span>还有 {materials?.reconciliation.pendingRequirementCount ?? "—"} 类物料待处理。请关闭本窗口，在工单行点击“物料”完成领料和去向核销。</span>
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={`实际产出数量（${view.workOrder.unit}）`} required>
                   <input value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" className={inputClass} disabled={!canWrite || Boolean(busy)} />
@@ -268,7 +287,7 @@ export function WorkOrderOutputModal({
                   <input value={varianceReason} onChange={(event) => setVarianceReason(event.target.value)} className={inputClass} maxLength={500} placeholder="例如：修整损耗导致少产 2 份" disabled={!canWrite || Boolean(busy)} />
                 </Field>
               </div>
-              <div className="mt-4 flex justify-end"><Button disabled={!canWrite || Boolean(busy)} onClick={() => void report()}>{busy === "report" ? <RefreshCw className="animate-spin" size={15} /> : <PackageCheck size={15} />}确认报产</Button></div>
+              <div className="mt-4 flex justify-end"><Button disabled={!canWrite || !materials?.reconciliation.ready || Boolean(busy)} onClick={() => void report()}>{busy === "report" ? <RefreshCw className="animate-spin" size={15} /> : <PackageCheck size={15} />}确认报产</Button></div>
             </section>
           ) : null}
 

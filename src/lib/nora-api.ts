@@ -11,6 +11,7 @@ import type {
   InventoryLotQualityStatus,
   InventoryStockBalance,
   InventoryTransaction,
+  WorkOrderMaterialUsage,
   WorkOrderMaterialsView,
   WorkOrderOutputView,
 } from "./types";
@@ -296,6 +297,29 @@ export const noraApi = {
       balance: InventoryStockBalance;
       materials: WorkOrderMaterialsView;
     }>(`/inventory/work-orders/${id}/${movement === "issue" ? "issues" : "returns"}`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ ...input, actor: auditActor }),
+    });
+  },
+
+  recordWorkOrderMaterialUsage(
+    id: string,
+    input: {
+      stockBalanceId: string;
+      disposition: "consumed" | "scrapped";
+      quantity: string;
+      unit: string;
+      reason?: string;
+      workstationCode: string;
+      deviceId: string;
+    },
+    idempotencyKey: string,
+  ) {
+    return request<{
+      usage: WorkOrderMaterialUsage;
+      materials: WorkOrderMaterialsView;
+    }>(`/work-orders/${id}/material-usages`, {
       method: "POST",
       headers: { "Idempotency-Key": idempotencyKey },
       body: JSON.stringify({ ...input, actor: auditActor }),
