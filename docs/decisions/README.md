@@ -10,5 +10,6 @@
 | [0006](./0006-net-prep-processing-boundary.md) | 已接受 | 净配菜加工边界 |
 | [0007](./0007-quality-release-controls-finished-goods-posting.md) | 已接受 | 质量放行控制成品入账与工单完工 |
 | [0008](./0008-issued-material-disposition-is-not-a-second-stock-movement.md) | 已接受 | 领出物料核销不重复改变库存余额 |
+| [0009](./0009-external-oidc-and-application-rbac.md) | 已接受 | 外部 OIDC 身份与应用内业务 RBAC |
 
 新增 ADR 使用“背景、决策、后果、验证、恢复/迁移”结构。许可证尚未决定，候选见 [许可证选项](./license-options.md)。
