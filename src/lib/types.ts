@@ -304,6 +304,7 @@ export type ProductionWorkOrderStatus =
   | "pending"
   | "running"
   | "paused"
+  | "awaiting_quality"
   | "completed"
   | "exception"
   | "cancelled";
@@ -360,6 +361,75 @@ export interface ProductionWorkOrder {
     deviceId: string | null;
     reason: string | null;
     createdAt: string;
+  }>;
+}
+
+export type WorkOrderOutputStatus = "pending_quality" | "released" | "rejected";
+export type QualityDecision = "released" | "rejected";
+
+export interface WorkOrderOutputView {
+  workOrder: {
+    id: string;
+    code: string;
+    factoryCode: string;
+    productName: string;
+    plannedQuantity: string;
+    unit: string;
+    workCenter: string;
+    status: ProductionWorkOrderStatus;
+    revision: number;
+  };
+  outputs: Array<{
+    id: string;
+    workOrderId: string;
+    productionBatchId: string;
+    productId: string;
+    lot: {
+      id: string;
+      code: string;
+      qualityStatus: InventoryLotQualityStatus;
+      productionAt: string | null;
+      expiresAt: string | null;
+    };
+    quantity: string;
+    unit: string;
+    status: WorkOrderOutputStatus;
+    varianceReason: string | null;
+    temperatureMin: string | null;
+    temperatureMax: string | null;
+    revision: number;
+    actor: string;
+    workstationCode: string;
+    deviceId: string;
+    reportedAt: string;
+    inspections: Array<{
+      id: string;
+      decision: QualityDecision;
+      standardVersion: string;
+      sampleQuantity: number;
+      measuredTemperature: string;
+      appearancePassed: boolean;
+      packageSealPassed: boolean;
+      labelPassed: boolean;
+      note: string | null;
+      actor: string;
+      workstationCode: string;
+      deviceId: string;
+      createdAt: string;
+    }>;
+    inventoryPosting: null | {
+      id: string;
+      location: { id: string; code: string; name: string };
+      quantity: string;
+      unit: string;
+      occurredAt: string;
+    };
+  }>;
+  finishedGoodsLocations: Array<{
+    id: string;
+    factoryCode: string;
+    code: string;
+    name: string;
   }>;
 }
 

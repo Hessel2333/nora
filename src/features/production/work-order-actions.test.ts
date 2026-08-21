@@ -6,6 +6,7 @@ describe("work order actions", () => {
     expect(workOrderActions("pending").map((action) => action.command)).toEqual(["start", "report-exception"]);
     expect(workOrderActions("running").map((action) => action.command)).toEqual(["pause", "report-exception"]);
     expect(workOrderActions("paused").map((action) => action.command)).toEqual(["resume", "report-exception"]);
+    expect(workOrderActions("awaiting_quality")).toEqual([]);
     expect(workOrderActions("exception").map((action) => action.command)).toEqual([
       "recover-running",
       "recover-pending",

@@ -12,6 +12,7 @@ import type {
   InventoryStockBalance,
   InventoryTransaction,
   WorkOrderMaterialsView,
+  WorkOrderOutputView,
 } from "./types";
 import { frontendAuditActor, getNoraRuntimeMode } from "./runtime-mode";
 
@@ -184,6 +185,58 @@ export const noraApi = {
 
   workOrders() {
     return request<{ data: ProductionWorkOrder[] }>("/work-orders");
+  },
+
+  workOrderOutputs(id: string) {
+    return request<WorkOrderOutputView>(`/work-orders/${id}/outputs`);
+  },
+
+  reportWorkOrderOutput(
+    id: string,
+    input: {
+      revision: number;
+      quantity: string;
+      unit: string;
+      lotCode: string;
+      expiresAt: string;
+      varianceReason?: string;
+      workstationCode: string;
+      deviceId: string;
+    },
+    idempotencyKey: string,
+  ) {
+    return request<WorkOrderOutputView>(`/work-orders/${id}/outputs`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ ...input, actor: auditActor }),
+    });
+  },
+
+  inspectWorkOrderOutput(
+    workOrderId: string,
+    outputId: string,
+    input: {
+      workOrderRevision: number;
+      outputRevision: number;
+      decision: "released" | "rejected";
+      standardVersion: string;
+      sampleQuantity: number;
+      measuredTemperature: string;
+      appearancePassed: boolean;
+      packageSealPassed: boolean;
+      labelPassed: boolean;
+      locationId?: string;
+      note?: string;
+      workstationCode: string;
+      deviceId: string;
+    },
+    idempotencyKey: string,
+  ) {
+    return request<WorkOrderOutputView>(`/work-orders/${workOrderId}/outputs/${outputId}/inspect`, {
+      method: "POST",
+      headers: { "Idempotency-Key": idempotencyKey },
+      body: JSON.stringify({ ...input, actor: auditActor }),
+    });
   },
 
   transitionWorkOrder(

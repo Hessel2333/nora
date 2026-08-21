@@ -23,6 +23,7 @@ const actionByStatus: Record<ProductionWorkOrderStatus, WorkOrderAction[]> = {
     { command: "resume", label: "继续", requiresReason: false, tone: "primary" },
     { command: "report-exception", label: "上报异常", requiresReason: true, tone: "danger" },
   ],
+  awaiting_quality: [],
   exception: [
     { command: "recover-running", label: "恢复生产", requiresReason: true, tone: "primary" },
     { command: "recover-pending", label: "退回待开工", requiresReason: true, tone: "secondary" },

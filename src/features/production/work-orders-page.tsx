@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ClipboardList,
   PackageOpen,
+  PackageCheck,
   Play,
   RefreshCw,
   Search,
@@ -29,11 +30,13 @@ import {
   type WorkOrderAction,
 } from "./work-order-actions";
 import { WorkOrderMaterialModal } from "./work-order-material-modal";
+import { WorkOrderOutputModal } from "./work-order-output-modal";
 
 const productionWorkOrderStatus: Record<ProductionWorkOrder["status"], { label: string; tone: StatusTone }> = {
   pending: { label: "待开工", tone: "purple" },
   running: { label: "生产中", tone: "warning" },
   paused: { label: "已暂停", tone: "danger" },
+  awaiting_quality: { label: "等待质检", tone: "warning" },
   completed: { label: "已完成", tone: "success" },
   exception: { label: "异常", tone: "danger" },
   cancelled: { label: "已取消", tone: "neutral" },
@@ -66,6 +69,7 @@ export function WorkOrdersPage() {
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState("");
   const [materialWorkOrder, setMaterialWorkOrder] = useState<ProductionWorkOrder | null>(null);
+  const [outputWorkOrder, setOutputWorkOrder] = useState<ProductionWorkOrder | null>(null);
   const commandKeys = useRef(new Map<string, string>());
 
   useEffect(() => {
@@ -217,6 +221,7 @@ export function WorkOrdersPage() {
           canWrite={mode !== "production"}
           onAction={requestAction}
           onMaterials={setMaterialWorkOrder}
+          onOutputs={setOutputWorkOrder}
         />
       )}
 
@@ -244,6 +249,15 @@ export function WorkOrdersPage() {
         onOpenChange={(open) => {
           if (!open) setMaterialWorkOrder(null);
         }}
+      />
+      <WorkOrderOutputModal
+        workOrder={outputWorkOrder}
+        mode={mode}
+        open={Boolean(outputWorkOrder)}
+        onOpenChange={(open) => {
+          if (!open) setOutputWorkOrder(null);
+        }}
+        onWorkOrderChanged={() => setRequestVersion((version) => version + 1)}
       />
     </>
   );
@@ -275,6 +289,7 @@ function RealWorkOrderList({
   canWrite,
   onAction,
   onMaterials,
+  onOutputs,
 }: {
   rows: ProductionWorkOrder[];
   query: string;
@@ -284,6 +299,7 @@ function RealWorkOrderList({
   canWrite: boolean;
   onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
   onMaterials: (workOrder: ProductionWorkOrder) => void;
+  onOutputs: (workOrder: ProductionWorkOrder) => void;
 }) {
   return (
     <Card className="overflow-hidden">
@@ -321,6 +337,7 @@ function RealWorkOrderList({
                     mobile
                     onAction={onAction}
                     onMaterials={onMaterials}
+                    onOutputs={onOutputs}
                   />
                 </article>
               );
@@ -344,7 +361,7 @@ function RealWorkOrderList({
                       <td className="max-w-[260px] px-5 py-4 text-xs text-[var(--text-secondary)]"><span className="line-clamp-2">{workOrder.operations.map((operation) => operation.name).join(" → ")}</span></td>
                       <td className="px-5 py-4"><Badge tone={status.tone}>{status.label}</Badge></td>
                       <td className="px-5 py-4">
-                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canWrite={canWrite} onAction={onAction} onMaterials={onMaterials} />
+                        <WorkOrderActionButtons workOrder={workOrder} actionId={actionId} canWrite={canWrite} onAction={onAction} onMaterials={onMaterials} onOutputs={onOutputs} />
                       </td>
                     </tr>
                   );
@@ -367,6 +384,7 @@ function WorkOrderActionButtons({
   mobile = false,
   onAction,
   onMaterials,
+  onOutputs,
 }: {
   workOrder: ProductionWorkOrder;
   actionId: string;
@@ -374,6 +392,7 @@ function WorkOrderActionButtons({
   mobile?: boolean;
   onAction: (workOrder: ProductionWorkOrder, action: WorkOrderAction) => void;
   onMaterials: (workOrder: ProductionWorkOrder) => void;
+  onOutputs: (workOrder: ProductionWorkOrder) => void;
 }) {
   const actions = workOrderActions(workOrder.status);
   return (
@@ -385,6 +404,14 @@ function WorkOrderActionButtons({
         onClick={() => onMaterials(workOrder)}
       >
         <PackageOpen size={14} />领退料
+      </Button>
+      <Button
+        size="sm"
+        variant={workOrder.status === "awaiting_quality" ? "primary" : "secondary"}
+        aria-label={`${workOrder.code} ${workOrder.status === "running" ? "申报产出" : workOrder.status === "awaiting_quality" ? "质量判定" : "产出记录"}`}
+        onClick={() => onOutputs(workOrder)}
+      >
+        <PackageCheck size={14} />{workOrder.status === "running" ? "报产" : workOrder.status === "awaiting_quality" ? "质检" : "产出"}
       </Button>
       {actions.map((action) => {
         const operationId = `${workOrder.id}:${workOrder.revision}:${action.command}`;

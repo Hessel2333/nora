@@ -367,6 +367,7 @@ function workOrderStatusLabel(status: WorkOrderMaterialsView["workOrder"]["statu
     pending: "待开工",
     running: "生产中",
     paused: "已暂停",
+    awaiting_quality: "等待质检",
     exception: "异常",
     completed: "已完成",
     cancelled: "已取消",
