@@ -17,6 +17,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [生产工单领料与退料功能规格](./product/work-order-material-movement.md)
 - [生产工单物料耗用与报损核销功能规格](./product/work-order-material-usage-reconciliation.md)
 - [生产工单产出、质检与成品入库功能规格](./product/work-order-output-quality-release.md)
+- [可信身份与职责权限 MVP](./product/identity-access-mvp.md)
 
 ## 2. 领域层：业务事实是什么
 
@@ -39,6 +40,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [生产批次 API 契约](./contracts/production-batch-api.md)
 - [生产工单 API 契约](./contracts/work-order-api.md)
 - [库存 API 契约](./contracts/inventory-api.md)
+- [身份 API 契约](./contracts/identity-api.md)
 - [销售订单状态机](./state-machines/sales-order.md)
 - [生产需求状态机](./state-machines/production-demand.md)
 - [生产批次状态机](./state-machines/production-batch.md)
@@ -47,6 +49,7 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [净配菜加工边界](./decisions/0006-net-prep-processing-boundary.md)
 - [质量放行控制成品入账与工单完工](./decisions/0007-quality-release-controls-finished-goods-posting.md)
 - [领出物料核销不重复改变库存余额](./decisions/0008-issued-material-disposition-is-not-a-second-stock-movement.md)
+- [外部 OIDC 身份与应用内业务 RBAC](./decisions/0009-external-oidc-and-application-rbac.md)
 
 ## 4. 交付层：怎样协作与验证
 
@@ -62,7 +65,9 @@ Nora 的文档按四层组织。任何功能实现都应能从产品边界追溯
 - [2026-08-20 生产工单领退料验证](./audits/verification-2026-08-20-work-order-material.md)
 - [2026-08-21 工单产出、质量与成品入库验证](./audits/verification-2026-08-21-work-order-output-quality.md)
 - [2026-08-21 工单物料耗用与报损核销验证](./audits/verification-2026-08-21-work-order-material-reconciliation.md)
+- [2026-08-21 可信身份与职责权限验证](./audits/verification-2026-08-21-identity-rbac.md)
 - [本地开发](./runbooks/local-development.md)
+- [本地 OIDC 与职责权限验证](./runbooks/local-identity.md)
 - [功能规格模板](./templates/feature-spec.md)
 - [工作流规格模板](./templates/workflow-spec.md)
 - [API 契约模板](./templates/api-contract.md)

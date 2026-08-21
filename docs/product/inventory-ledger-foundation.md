@@ -22,7 +22,7 @@
 | 生产计划员 | 查看可用库存与效期 | 当前组织 |
 | 现场员工 | 后续扫码领料时选择库存批次 | 当前组织和授权库位；本切片只读 |
 
-当前身份认证尚未接入：development 使用显式开发身份；production 拒绝写入；demo 不把浏览器数据写入正式台账。
+development 使用显式开发身份；production 使用验证后的 OIDC 身份并要求 `inventory:write`；demo 不把浏览器数据写入正式台账。
 
 ## 核心用例
 

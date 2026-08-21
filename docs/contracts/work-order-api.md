@@ -61,7 +61,7 @@
 }
 ```
 
-`actor` 仅在 demo/development 使用；production 必须从认证上下文取得。可信身份尚未接入前，production 拒绝所有写命令。
+`actor` 仅在 demo/development 使用；production 从验证后的 OIDC 请求身份取得并忽略客户端传值。命令还需满足对应的 `execution:operate` 或 `execution:supervise` 权限。
 
 | API | 允许转换 | 附加字段 |
 | --- | --- | --- |

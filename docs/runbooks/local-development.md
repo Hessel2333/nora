@@ -65,6 +65,10 @@ pnpm test:smoke
 
 Swagger UI 位于 `http://localhost:3100/api/docs`。
 
+## 验证 production 身份与权限
+
+development 默认使用服务端固定开发身份。需要验证真实登录、Bearer token、组织范围和职责权限时，使用版本化的本地 Keycloak Realm；完整步骤见[本地 OIDC 与职责权限验证](./local-identity.md)。
+
 ## 常见问题
 
 ### Docker API 不可用

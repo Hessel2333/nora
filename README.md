@@ -18,7 +18,8 @@ Nora 将门店和客户订单，转化为可执行、可追溯、可核算的中
 | 库存批次与台账 | 后端 MVP | 已有库位、批次、追加式流水、余额投影和幂等期初入账；正式查询不读取 `Product.stock`，流水由数据库禁止修改/删除 |
 | 工单领料与退料 | 后端 MVP | 只按工单冻结 v2 配方计算叶子原料需求；支持已放行批次、FEFO 建议、余额 revision、幂等领退料和工单/批次/库位因果链；不等于实际投料 |
 | 实际投料、质检追溯、产出与实际成本 | 未实现 | 尚未形成工序耗用、质量结果、成品批次与成本核算的完整现场事实链 |
-| Dashboard、MES、数字孪生、预测、门户 | 明确的 Demo | 仅在 `demo` 模式或 development 显式演示预览中开放，数据和操作不代表生产能力；独立的生产工单页面已有真实读取、状态命令和领退料路径 |
+| 可信身份与职责权限 | 生产 MVP | production 使用外部 OIDC、固定 JWKS 验证、单组织 claim 和服务端命令权限；尚未实现多组织租户隔离和身份管理后台 |
+| Dashboard、旧 MES、数字孪生、预测、门户 | 明确的 Demo | 仅在 `demo` 模式或 development 显式演示预览中开放，数据和操作不代表生产能力；独立的生产工单页面已有真实读取、状态命令、物料核销和产出质检路径 |
 
 详细证据见 [批判性审查](docs/audits/nora-critical-review.md) 和 [UI/UX 审查](docs/audits/ui-ux-audit.md)。
 
@@ -60,7 +61,7 @@ PostgreSQL (:54329)
 
 - Controller 维护 HTTP 契约；Service 编排用例和事务；Policy 保存可独立测试规则。
 - 前端不访问数据库，不直接改变正式业务状态。
-- 正式数据查询必须带组织边界；当前只有固定演示组织，尚无完整租户/身份系统。
+- 正式数据查询必须带组织边界；当前为 OIDC 验证的固定单组织 MVP，不等于已完成多租户隔离或身份管理系统。
 - Decimal 用于数据库金额与精确数量。数据库变更必须提交 migration，禁止用 `prisma db push` 代替。
 
 ## 本地启动
@@ -76,6 +77,8 @@ pnpm dev:full
 服务：Web <http://localhost:3000>、API <http://localhost:3100/api/v1>、OpenAPI <http://localhost:3100/api/docs>。
 
 若只需体验静态模块，将两个 `NORA_MODE` 均设为 `demo`。验证正式写入行为时使用 `development` 并启动 API/PostgreSQL。
+
+验证 production 登录与职责权限时，先运行 `pnpm auth:up`，将 Web/API 模式改为 `production` 后启动服务。账号和安全边界见[本地身份验证手册](docs/runbooks/local-identity.md)；仓库中的 Realm 只用于本地验收，禁止作为正式环境身份配置。
 
 ## 质量命令
 

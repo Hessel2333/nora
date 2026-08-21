@@ -91,9 +91,11 @@ Showroom 保持公开演示，不携带 production token，不访问正式业务
 
 ## 验收标准
 
-- [ ] production 无 token、过期 token、错误 issuer/audience/组织时业务接口失败关闭。
-- [ ] 有效 token 可读取 `/auth/me`，服务端返回的权限与角色矩阵一致。
-- [ ] 现场操作员不能质量放行，质量人员不能报产，计划员不能审核订单。
-- [ ] production 写入的 actor 来自验证后的身份，客户端伪造 actor 无效。
-- [ ] Web 登录、刷新、退出和 `401/403/503` 状态可理解，token 不持久化。
-- [ ] demo/development 行为保持可验证，Showroom 不被正式登录阻断。
+- [x] production 无 token、过期 token、错误 issuer/audience/组织时业务接口失败关闭。
+- [x] 有效 token 可读取 `/auth/me`，服务端返回的权限与角色矩阵一致。
+- [x] 现场操作员不能质量放行，质量人员不能报产，计划员不能审核订单。
+- [x] production 写入的 actor 来自验证后的身份，客户端伪造 actor 无效。
+- [x] Web 登录、刷新、退出和 `401/403/503` 状态可理解，token 不持久化。
+- [x] demo/development 行为保持可验证，Showroom 不被正式登录阻断。
+
+验证证据见 [2026-08-21 可信身份与职责权限验证](../audits/verification-2026-08-21-identity-rbac.md)。
